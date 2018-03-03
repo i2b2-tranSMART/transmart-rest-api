@@ -22,153 +22,124 @@
  * You should have received a copy of the GNU General Public License along
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-grails.servlet.version = '3.0'
 
-def defaultVMSettings = [
-        maxMemory: 768,
-        minMemory: 64,
-        debug:     false,
-        maxPerm:   256
-]
+def defaultVMSettings = [maxMemory: 768, minMemory: 64, debug: false, maxPerm: 256]
 
-grails.project.fork = [
-    test:    [*: defaultVMSettings, daemon:      true],
-    run:     [*: defaultVMSettings, forkReserve: false],
-    war:     [*: defaultVMSettings, forkReserve: false],
-    console: defaultVMSettings
-]
-
-final def CLOVER_VERSION = '4.1.1'
+final String CLOVER_VERSION = '4.1.1'
 def enableClover = System.getenv('CLOVER')
 
-def dm, dmClass
+def dm
 try {
-    dmClass = new GroovyClassLoader().parseClass(
-            new File('../transmart-dev/DependencyManagement.groovy'))
-} catch (Exception e) {
+	Class dmClass = new GroovyClassLoader().parseClass(
+			new File('../transmart-dev/DependencyManagement.groovy'))
+	dm = dmClass?.newInstance()
 }
-if (dmClass) {
-    dm = dmClass.newInstance()
-}
+catch (ignored) {}
 
-if (enableClover) {
-    grails.project.fork.test = false
-
-    clover {
-        on = true
-
-        srcDirs = ['src/java', 'src/groovy', 'grails-app', 'test']
-        excludes = ['**/conf/**', '**/plugins/**', '**/HighDimProtos.java']
-
-        reporttask = { ant, binding, plugin ->
-            def reportDir = "${binding.projectTargetDir}/clover/report"
-            ant.'clover-report' {
-                ant.current(outfile: reportDir, title: 'transmart-rest-api') {
-                    format(type: "html", reportStyle: 'adg')
-                    testresults(dir: 'target/test-reports', includes: '*.xml')
-                    ant.columns {
-                        lineCount()
-                        filteredElements()
-                        uncoveredElements()
-                        totalPercentageCovered()
-                    }
-                }
-                ant.current(outfile: "${reportDir}/clover.xml") {
-                    format(type: "xml")
-                    testresults(dir: 'target/test-reports', includes: '*.xml')
-                }
-            }
-        }
-    }
-}
+grails.project.fork = [test: [*: defaultVMSettings, daemon: true], console: defaultVMSettings]
+grails.project.work.dir = 'target'
+grails.servlet.version = '3.0'
 
 grails.project.dependency.resolver = 'maven'
 grails.project.dependency.resolution = {
-    inherits('global') {
-        // specify dependency exclusions here; for example, uncomment this to disable ehcache:
-        // excludes 'ehcache'
-    }
-    log 'warn'
+	inherits 'global'
+	log 'warn'
 
-    if (!dm) {
-        repositories {
-            grailsCentral()
-            mavenCentral()
+	if (!dm) {
+		repositories {
+			mavenLocal() // Note: use 'grails maven-install' to install required plugins locally
+			grailsCentral()
+			mavenCentral()
+			mavenRepo 'https://repo.transmartfoundation.org/content/repositories/public/'
+		}
+	}
+	else {
+		dm.configureRepositories delegate
+	}
 
-            mavenRepo "https://repo.transmartfoundation.org/content/repositories/public/"
-            mavenRepo "https://repo.thehyve.nl/content/repositories/public/"
-        }
-    } else {
-        dm.configureRepositories delegate
-    }
+	dependencies {
+		compile 'com.google.protobuf:protobuf-java:2.5.0'
+		compile 'org.transmartproject:transmart-core-api:16.2'
 
-    dependencies {
-        compile 'org.transmartproject:transmart-core-api:16.2-SNAPSHOT'
-        compile 'org.javassist:javassist:3.16.1-GA'
+		runtime 'org.postgresql:postgresql:9.3-1100-jdbc41', { export = false }
+		runtime 'com.oracle:ojdbc7:12.1.0.1', { export = false }
 
-        // includes fix for GRAILS-11126
-        compile 'org.grails:grails-plugin-rest:2.3.5-hyve4'
+		test 'org.gmock:gmock:0.8.3', { transitive = false }
+		test 'org.hamcrest:hamcrest-library:1.3'
+		test 'org.hamcrest:hamcrest-core:1.3'
+		test 'org.codehaus.groovy.modules.http-builder:http-builder:0.6', {
+			excludes 'groovy', 'nekohtml'
+			exported = false
+		}
+	}
 
-        compile 'com.google.protobuf:protobuf-java:2.5.0'
+	plugins {
+		build ':release:3.1.2', ':rest-client-builder:2.1.1', {
+			export = false
+		}
+		build ':tomcat:7.0.47', {
+			export = false
+		}
 
-        runtime 'org.postgresql:postgresql:9.3-1100-jdbc41', {
-            export = false
-        }
-        runtime 'com.oracle:ojdbc7:12.1.0.1', {
-            export = false
-        }
+		compile ':spring-security-core:2.0.0'
 
-        test 'org.gmock:gmock:0.8.3', {
-            transitive = false /* don't bring groovy-all */
-        }
-        test 'junit:junit:4.11', {
-            transitive = false /* don't bring hamcrest */
-        }
-        test 'org.hamcrest:hamcrest-library:1.3'
-        test 'org.hamcrest:hamcrest-core:1.3'
-        test 'org.codehaus.groovy.modules.http-builder:http-builder:0.6', {
-            excludes 'groovy', 'nekohtml'
-            exported = false
-        }
-    }
+		runtime ':hibernate:3.6.10.19', {
+			export = false
+		}
 
-    plugins {
-        build ':release:3.0.1', ':rest-client-builder:2.1.1', {
-            export = false
-        }
-        build ':tomcat:7.0.47', {
-            export = false
-        }
+		test ':functional-test:2.0.0'
 
-        compile ':spring-security-core:2.0-RC2'
+		if (!dm) {
+			compile ':transmart-core:18.1-SNAPSHOT'
+			test ':transmart-core-db-tests:18.1-SNAPSHOT'
+		}
+		else {
+			dm.internalDependencies delegate
+		}
 
-        // core-db doesn't export hibernate as dep as it was builtin in 2.2.4
-        runtime ':hibernate:3.6.10.16'
+		if (enableClover) {
+			compile ":clover:$CLOVER_VERSION", {
+				export = false
+			}
+		}
+	}
+}
 
-        test ':functional-test:2.0.0'
+if (enableClover) {
+	grails.project.fork.test = false
 
-        if (!dm) {
-            runtime ':transmart-core:16.2-SNAPSHOT'
+	clover {
+		on = true
 
-            test ':transmart-core:16.2-SNAPSHOT'
-            test ':transmart-core-db-tests:16.2-SNAPSHOT'
-        } else {
-            dm.internalDependencies delegate
-        }
+		srcDirs = ['src/java', 'src/groovy', 'grails-app', 'test']
+		excludes = ['**/conf/**', '**/plugins/**', '**/HighDimProtos.java']
 
-        if (enableClover) {
-            compile ":clover:$CLOVER_VERSION", {
-                export = false
-            }
-        }
-    }
+		reporttask = { ant, binding, plugin ->
+			String reportDir = "$binding.projectTargetDir/clover/report"
+			ant.'clover-report' {
+				ant.current(outfile: reportDir, title: 'transmart-rest-api') {
+					format(type: 'html', reportStyle: 'adg')
+					testresults(dir: 'target/test-reports', includes: '*.xml')
+					ant.columns {
+						lineCount()
+						filteredElements()
+						uncoveredElements()
+						totalPercentageCovered()
+					}
+				}
+				ant.current(outfile: "$reportDir/clover.xml") {
+					format(type: 'xml')
+					testresults(dir: 'target/test-reports', includes: '*.xml')
+				}
+			}
+		}
+	}
 }
 
 dm?.with {
-    configureInternalPlugin 'runtime', 'transmart-core'
-    configureInternalPlugin 'test', 'transmart-core'
-    configureInternalPlugin 'test', 'transmart-core-db-tests'
+	configureInternalPlugin 'runtime', 'transmart-core'
+	configureInternalPlugin 'test', 'transmart-core'
+	configureInternalPlugin 'test', 'transmart-core-db-tests'
 }
 
 dm?.inlineInternalDependencies grails, grailsSettings
-Z
