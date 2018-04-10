@@ -50,8 +50,10 @@ grails.project.dependency.resolution = {
 			mavenLocal() // Note: use 'grails maven-install' to install required plugins locally
 			grailsCentral()
 			mavenCentral()
-			mavenRepo 'http://ec2-35-170-59-132.compute-1.amazonaws.com:8080/artifactory/plugins-snapshots'
+			mavenRepo 'http://ec2-35-170-59-132.compute-1.amazonaws.com:8080/artifactory/libs-snapshots'
+			mavenRepo 'http://ec2-35-170-59-132.compute-1.amazonaws.com:8080/artifactory/libs-releases'
 			mavenRepo 'http://ec2-35-170-59-132.compute-1.amazonaws.com:8080/artifactory/plugins-releases'
+			mavenRepo 'http://ec2-35-170-59-132.compute-1.amazonaws.com:8080/artifactory/plugins-snapshots'
 			mavenRepo 'https://repo.transmartfoundation.org/content/repositories/public/'
 		}
 	}
@@ -61,7 +63,7 @@ grails.project.dependency.resolution = {
 
 	dependencies {
 		compile 'com.google.protobuf:protobuf-java:2.5.0'
-		compile 'org.transmartproject:transmart-core-api:16.2'
+		compile 'org.transmartproject:transmart-core-api:18.1-SNAPSHOT'
 
 		runtime 'org.postgresql:postgresql:9.3-1100-jdbc41', { export = false }
 		runtime 'com.oracle:ojdbc7:12.1.0.1', { export = false }
@@ -73,6 +75,7 @@ grails.project.dependency.resolution = {
 			excludes 'groovy', 'nekohtml'
 			exported = false
 		}
+		test 'org.grails:grails-datastore-test-support:1.0.2-grails-2.4'
 	}
 
 	plugins {
@@ -93,6 +96,7 @@ grails.project.dependency.resolution = {
 
 		if (!dm) {
 			compile ':transmart-core:18.1-SNAPSHOT'
+			compile ':transmart-shared:18.1-SNAPSHOT'
 			test ':transmart-core-db-tests:18.1-SNAPSHOT'
 		}
 		else {
