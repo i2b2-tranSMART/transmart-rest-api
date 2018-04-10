@@ -25,12 +25,12 @@
 
 package org.transmartproject.rest.marshallers
 
+import groovy.transform.CompileStatic
 import org.transmartproject.core.dataquery.Patient
-import org.transmartproject.core.dataquery.clinical.ClinicalVariable
 
+@CompileStatic
 class ObservationWrapper {
-    def value
-    Patient subject
-    String label
+	def value
+	Patient subject
+	String label
 }
-

@@ -27,37 +27,39 @@ package org.transmartproject.rest.marshallers
 
 import grails.rest.Link
 import groovy.transform.Canonical
-import groovy.transform.TupleConstructor
+import groovy.transform.CompileStatic
 
 // wrapper for collections of core-api helper so we can target a marshaller to them
+@CompileStatic
 class ContainerResponseWrapper {
-    private ContainerResponseWrapper() {}
+	private ContainerResponseWrapper() {}
 
-    ContainerResponseWrapper(Map args) {
-        Object container = args.container
-        Class componentType = args.componentType
-        String key = args.key
-        links = args.links ?: []
+	List<entry> containers
+	List<Link> links
 
-        containers = (args.containers ?: []) + [new entry(key, componentType, container)]
-    }
+	ContainerResponseWrapper(Map args) {
+		def container = args.container
+		Class componentType = args.componentType
+		String key = args.key
+		links = (args.links ?: []) as List<Link>
 
-    static ContainerResponseWrapper asMap(Map<String, List> args, List<Link> links) {
-        def wrapper = new ContainerResponseWrapper()
-        wrapper.containers = args.collect {
-            new entry(key: it.key, componentType: it.value[0], container: it.value[1])
-        }
-        wrapper.links = links
-        return wrapper
-    }
+		containers = ((args.containers ?: []) as List<entry>) + [new entry(key, componentType, container)]
+	}
 
-    List<Link> links
+	static ContainerResponseWrapper asMap(Map<String, List> args, List<Link> links) {
+		ContainerResponseWrapper wrapper = new ContainerResponseWrapper()
+		wrapper.containers = args.collect { Map.Entry<String, List> it ->
+				new entry(key: it.key, componentType: (Class) it.value[0], container: it.value[1])
+		}
+		wrapper.links = links
+		return wrapper
+	}
 
-    List<entry> containers
-
-    @Canonical static class entry {
-        String key = null
-        Class componentType
-        Object container  // in the general sense. Can be Iterator
-    }
+	@Canonical
+	@CompileStatic
+	static class entry {
+		String key = null
+		Class componentType
+		def container  // in the general sense. Can be Iterator
+	}
 }

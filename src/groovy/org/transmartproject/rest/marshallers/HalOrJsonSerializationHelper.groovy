@@ -31,20 +31,19 @@ import grails.rest.Link
  * All implementations of this interface are automatically registered by {@link MarshallersRegistrar} at startup, so
  * they can be used to convert objects to JSON in `foo as JSON` expressions.
  *
- * @param <T> The type that this class can serialize
+ * @param < T >  The type that this class can serialize
  */
 interface HalOrJsonSerializationHelper<T> {
 
-    Class<T> getTargetType()
+	Class<T> getTargetType()
 
-    Collection<Link> getLinks(T object)
+	Collection<Link> getLinks(T object)
 
-    Set<String> getAggregatedLinkRelations()
+	Set<String> getAggregatedLinkRelations()
 
-    Map<String, Object> convertToMap(T object)
+	Map<String, Object> convertToMap(T object)
 
-    Set<String> getEmbeddedEntities(T object)
+	Set<String> getEmbeddedEntities(T object)
 
-    String getCollectionName()
-
+	String getCollectionName()
 }

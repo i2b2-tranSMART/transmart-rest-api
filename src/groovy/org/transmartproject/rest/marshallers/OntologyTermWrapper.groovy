@@ -40,30 +40,34 @@ import static org.transmartproject.core.ontology.OntologyTerm.VisualAttributes.L
  */
 class OntologyTermWrapper {
 
-    OntologyTerm delegate
+	OntologyTerm delegate
 
-    private boolean root = false
+	private boolean root = false
 
-    OntologyTermWrapper(OntologyTerm term, boolean root) {
-        this.delegate = term
-        this.root = root
-    }
+	OntologyTermWrapper(OntologyTerm term, boolean root) {
+		delegate = term
+		this.root = root
+	}
 
-    boolean isHighDim() {
-        HIGH_DIMENSIONAL in delegate.visualAttributes
-    }
+	boolean isHighDim() {
+		HIGH_DIMENSIONAL in delegate.visualAttributes
+	}
 
-    ApiOntologyTermType getApiOntologyTermType() {
-        if (highDim) {
-            ApiOntologyTermType.HIGH_DIMENSIONAL
-        } else if (root) {
-            ApiOntologyTermType.STUDY
-        } else if (delegate.metadata?.okToUseValues) {
-            ApiOntologyTermType.NUMERIC
-        } else if (LEAF in delegate.visualAttributes) {
-            ApiOntologyTermType.CATEGORICAL_OPTION
-        } else {
-            ApiOntologyTermType.UNKNOWN
-        }
-    }
+	ApiOntologyTermType getApiOntologyTermType() {
+		if (highDim) {
+			ApiOntologyTermType.HIGH_DIMENSIONAL
+		}
+		else if (root) {
+			ApiOntologyTermType.STUDY
+		}
+		else if (delegate.metadata?.okToUseValues) {
+			ApiOntologyTermType.NUMERIC
+		}
+		else if (LEAF in delegate.visualAttributes) {
+			ApiOntologyTermType.CATEGORICAL_OPTION
+		}
+		else {
+			ApiOntologyTermType.UNKNOWN
+		}
+	}
 }

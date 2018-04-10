@@ -30,88 +30,90 @@ import grails.rest.Link
 import org.codehaus.groovy.grails.web.converters.exceptions.ConverterException
 import org.codehaus.groovy.grails.web.converters.marshaller.ObjectMarshaller
 
-import static grails.rest.render.util.AbstractLinkingRenderer.*
+import static grails.rest.render.util.AbstractLinkingRenderer.DEPRECATED_ATTRIBUTE
+import static grails.rest.render.util.AbstractLinkingRenderer.HREFLANG_ATTRIBUTE
+import static grails.rest.render.util.AbstractLinkingRenderer.HREF_ATTRIBUTE
+import static grails.rest.render.util.AbstractLinkingRenderer.TEMPLATED_ATTRIBUTE
+import static grails.rest.render.util.AbstractLinkingRenderer.TITLE_ATTRIBUTE
+import static grails.rest.render.util.AbstractLinkingRenderer.TYPE_ATTRIBUTE
 
 class CoreApiObjectMarshaller implements ObjectMarshaller<JSON> {
 
-    public static final String LINKS_ATTRIBUTE = '_links'
-    public static final String EMBEDDED_ATTRIBUTE = '_embedded'
-    HalOrJsonSerializationHelper serializationHelper
+	public static final String LINKS_ATTRIBUTE = '_links'
+	public static final String EMBEDDED_ATTRIBUTE = '_embedded'
 
-    Class<?> getTargetType() {
-        serializationHelper.targetType
-    }
+	HalOrJsonSerializationHelper serializationHelper
 
-    @Override
-    boolean supports(Object object) {
-        serializationHelper.targetType.isAssignableFrom(object.getClass())
-    }
+	Class<?> getTargetType() {
+		serializationHelper.targetType
+	}
 
-    @Override
-    void marshalObject(Object object, JSON json) throws ConverterException {
-        Map<String, Object> mapRepresentation =
-                serializationHelper.convertToMap(object)
+	boolean supports(object) {
+		serializationHelper.targetType.isAssignableFrom object.getClass()
+	}
 
-        if (json.contentType.contains('hal')) {
-            mapRepresentation[LINKS_ATTRIBUTE] = getLinks(object)
-            segregateEmbedded mapRepresentation, object
-        }
+	void marshalObject(object, JSON json) throws ConverterException {
+		Map<String, Object> mapRepresentation = serializationHelper.convertToMap(object)
 
-        json.value mapRepresentation
-    }
+		if (json.contentType.contains('hal')) {
+			mapRepresentation[LINKS_ATTRIBUTE] = getLinks(object)
+			segregateEmbedded mapRepresentation, object
+		}
 
-    /**
-     * @param object
-     * @return map of relationship to link value. Value is either a Link (simple) or a List<Link> (aggregated)
-     */
-    private Map<String, Object> getLinks(Object object) {
+		json.value mapRepresentation
+	}
 
-        Map<String, Object> result = [:]
-        Map<String, List<Link>> grouped = serializationHelper.getLinks(object).groupBy { it.rel }
+	/**
+	 * @return map of relationship to link value. Value is either a Link (simple) or a List<Link> (aggregated)
+	 */
+	private Map<String, Object> getLinks(Object object) {
 
-        grouped.each {
-            key, list ->
-                if (serializationHelper.aggregatedLinkRelations.contains(key)) {
-                    result.put(key, list.collect { convertLink(it)} )
-                } else {
-                    //only the first element will be picked. Its not supposed to have more than one anyway
-                    result.put(key, convertLink(list.get(0)))
-                }
-        }
+		Map<String, Object> result = [:]
+		Map<String, List<Link>> grouped = serializationHelper.getLinks(object).groupBy { it.rel }
 
-        result
-    }
+		grouped.each { String key, List<Link> list ->
+			if (serializationHelper.aggregatedLinkRelations.contains(key)) {
+				result[key] = list.collect { Link link -> convertLink link }
+			}
+			else {
+				//only the first element will be picked. Its not supposed to have more than one anyway
+				result[key] = convertLink(list[0])
+			}
+		}
 
-    private Map<String, Object> convertLink(Link link) {
-        def res = [(HREF_ATTRIBUTE): link.href]
-        if (link.hreflang) {
-            res[HREFLANG_ATTRIBUTE] = link.hreflang
-        }
-        if (link.title) {
-            res[TITLE_ATTRIBUTE] = link.title
-        }
-        if (link.contentType) {
-            res[TYPE_ATTRIBUTE] = link.contentType
-        }
-        if (link.templated) {
-            res[TEMPLATED_ATTRIBUTE] = true
-        }
-        if (link.deprecated) {
-            res[DEPRECATED_ATTRIBUTE] = true
-        }
-        res
-    }
+		result
+	}
 
-    private void segregateEmbedded(Map<String, Object> map, Object originalObject) {
-        def embedded = serializationHelper.
-                getEmbeddedEntities(originalObject).
-                collectEntries {
-                    def association = map.remove(it)
-                    [it, association]
-                }
+	private Map<String, Object> convertLink(Link link) {
+		Map<String, Object> res = [(HREF_ATTRIBUTE): link.href]
+		if (link.hreflang) {
+			res[HREFLANG_ATTRIBUTE] = link.hreflang
+		}
+		if (link.title) {
+			res[TITLE_ATTRIBUTE] = link.title
+		}
+		if (link.contentType) {
+			res[TYPE_ATTRIBUTE] = link.contentType
+		}
+		if (link.templated) {
+			res[TEMPLATED_ATTRIBUTE] = true
+		}
+		if (link.deprecated) {
+			res[DEPRECATED_ATTRIBUTE] = true
+		}
+		res
+	}
 
-        if (embedded) {
-            map[EMBEDDED_ATTRIBUTE] = embedded
-        }
-    }
+	private void segregateEmbedded(Map<String, Object> map, originalObject) {
+		def embedded = serializationHelper.
+				getEmbeddedEntities(originalObject).
+				collectEntries { String it ->
+					def association = map.remove(it)
+					[it, association]
+				}
+
+		if (embedded) {
+			map[EMBEDDED_ATTRIBUTE] = embedded
+		}
+	}
 }

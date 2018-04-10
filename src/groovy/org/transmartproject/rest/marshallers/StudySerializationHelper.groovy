@@ -26,33 +26,27 @@
 package org.transmartproject.rest.marshallers
 
 import grails.rest.Link
+import groovy.transform.CompileStatic
 import org.transmartproject.core.ontology.Study
-import org.transmartproject.rest.StudyLoadingService
-
-import javax.annotation.Resource
 
 import static grails.rest.render.util.AbstractLinkingRenderer.RELATIONSHIP_SELF
 
+@CompileStatic
 class StudySerializationHelper extends AbstractHalOrJsonSerializationHelper<Study> {
 
-    final Class targetType = Study
+	final Class targetType = Study
 
-    final String collectionName = 'studies'
+	final String collectionName = 'studies'
 
-    @Override
-    Collection<Link> getLinks(Study study) {
-        [new Link(RELATIONSHIP_SELF, '/studies/' +
-                study.id.toLowerCase(Locale.ENGLISH).encodeAsURL())]
-    }
+	Collection<Link> getLinks(Study study) {
+		[new Link(RELATIONSHIP_SELF, '/studies/' + lowerCaseAncodeAsUrl(study.id))]
+	}
 
-    @Override
-    Map<String, Object> convertToMap(Study study) {
-        def term = new OntologyTermWrapper(study.ontologyTerm, true)
-            [id: study.id, ontologyTerm: term]
-    }
+	Map<String, Object> convertToMap(Study study) {
+		[id: study.id, ontologyTerm: new OntologyTermWrapper(study.ontologyTerm, true)]
+	}
 
-    @Override
-    Set<String> getEmbeddedEntities(Study object) {
-        ['ontologyTerm'] as Set
-    }
+	Set<String> getEmbeddedEntities(Study object) {
+		['ontologyTerm'] as Set
+	}
 }

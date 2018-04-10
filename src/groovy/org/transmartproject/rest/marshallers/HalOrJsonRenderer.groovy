@@ -26,7 +26,11 @@
 package org.transmartproject.rest.marshallers
 
 import grails.converters.JSON
-import grails.rest.render.*
+import grails.rest.render.AbstractIncludeExcludeRenderer
+import grails.rest.render.AbstractRenderer
+import grails.rest.render.ContainerRenderer
+import grails.rest.render.RenderContext
+import grails.rest.render.RendererRegistry
 import org.codehaus.groovy.grails.web.mime.MimeType
 import org.springframework.beans.factory.InitializingBean
 import org.springframework.beans.factory.annotation.Autowired
@@ -37,94 +41,88 @@ import java.util.regex.Pattern
 
 class HalOrJsonRenderer<T> extends AbstractIncludeExcludeRenderer<T> implements InitializingBean {
 
-    private static final Pattern CHARSET_IN_CONTENT_TYPE_REGEXP =
-            Pattern.compile(';\\s*charset\\s*=', Pattern.CASE_INSENSITIVE)
+	private static final Pattern CHARSET_IN_CONTENT_TYPE_REGEXP =
+			Pattern.compile(';\\s*charset\\s*=', Pattern.CASE_INSENSITIVE)
 
-    String encoding = 'UTF-8'
+	String encoding = 'UTF-8'
 
-    HalOrJsonRenderer(Class<T> clazz) {
-        super(clazz, [MimeType.HAL_JSON, MimeType.JSON] as MimeType[])
-    }
+	HalOrJsonRenderer(Class<T> clazz) {
+		super(clazz, [MimeType.HAL_JSON, MimeType.JSON] as MimeType[])
+	}
 
-    @Autowired
-    RendererRegistry rendererRegistry
+	@Autowired
+	RendererRegistry rendererRegistry
 
-    static class HalOrJsonCollectionRenderer<C, T> extends AbstractRenderer<C>
-            implements ContainerRenderer<C, T> {
+	static class HalOrJsonCollectionRenderer<C, T> extends AbstractRenderer<C>
+			implements ContainerRenderer<C, T> {
 
-        final Class<T> componentType
+		final Class<T> componentType
+		final Class<C> targetType
+		final AbstractIncludeExcludeRenderer<T> renderer
 
-        final Class<C> targetType
+		HalOrJsonCollectionRenderer(AbstractIncludeExcludeRenderer<T> renderer,
+		                            Class<C> containerType) {
+			super(containerType, renderer.mimeTypes)
+			componentType = renderer.getTargetType()
+			this.renderer = renderer
+			this.targetType = containerType
+		}
 
-        final AbstractIncludeExcludeRenderer<T> renderer
+		void render(C object, RenderContext context) {
+			MimeType mimeType = context.acceptMimeType ?: mimeTypes[0]
+			def newObject = object
 
-        HalOrJsonCollectionRenderer(AbstractIncludeExcludeRenderer<T> renderer,
-                                    Class<C> containerType) {
-            super(containerType, renderer.mimeTypes)
-            componentType = renderer.getTargetType()
-            this.renderer = renderer
-            this.targetType = containerType
-        }
+			if (mimeType.name == MimeType.HAL_JSON.name) {
+				newObject = new ContainerResponseWrapper(
+						componentType: componentType,
+						container: object)
+			}
 
-        @Override
-        void render(C object, RenderContext context) {
-            def mimeType = context.acceptMimeType ?: mimeTypes[0]
-            def newObject = object
+			renderer.render newObject, context
+		}
+	}
 
-            if (mimeType.name == MimeType.HAL_JSON.name) {
-                newObject = new ContainerResponseWrapper(
-                        componentType: componentType,
-                        container: object)
-            }
+	void afterPropertiesSet() {
+		rendererRegistry.addRenderer this
+		rendererRegistry.addRenderer new HalOrJsonCollectionRenderer(this, Collection)
+		rendererRegistry.addRenderer new HalOrJsonCollectionRenderer(this, Iterator)
+	}
 
-            renderer.render newObject, context
-        }
+	void render(T object, RenderContext context) {
+		if (object instanceof Errors) {
+			throw new InvalidArgumentsException("Errors: $object")
+		}
 
-    }
+		MimeType mimeType = getAcceptMimeType(context)
 
-    @Override
-    void afterPropertiesSet() throws Exception {
-        rendererRegistry.addRenderer this
-        rendererRegistry.addRenderer new HalOrJsonCollectionRenderer(this, Collection)
-        rendererRegistry.addRenderer new HalOrJsonCollectionRenderer(this, Iterator)
-    }
+		String contentType = getContentType mimeType.name
+		context.contentType = contentType
 
-    @Override
-    void render(T object, RenderContext context) {
-        def mimeType = getAcceptMimeType(context)
+		renderJson object, context, contentType
+	}
 
-        def contentType = getContentType mimeType.name
-        context.contentType = contentType
+	private String getContentType(String name) {
+		if (name.indexOf(';') > -1 &&
+				CHARSET_IN_CONTENT_TYPE_REGEXP.matcher(name).find()) {
+			name
+		}
+		else {
+			name = ';charset=' + encoding
+		}
+	}
 
-        if (!(object instanceof Errors)) {
-            renderJson(object, context, contentType)
-        } else {
-            throw new InvalidArgumentsException("Errors: $object")
-        }
-    }
+	private void renderJson(T object, RenderContext context, String contentType) {
+		JSON json = new JSON()
+		json.contentType = contentType
 
-    private String getContentType(String name) {
-        if (name.indexOf(';') > -1 &&
-                CHARSET_IN_CONTENT_TYPE_REGEXP.matcher(name).find()) {
-            name
-        } else {
-            "$name;charset=${this.encoding}"
-        }
-    }
+		json.target = object
+		json.excludes = context.excludes
+		json.includes = context.includes
 
-    private void renderJson(T object, RenderContext context, String contentType) {
-        JSON json        = new JSON()
-        json.contentType = contentType
+		json.render context.writer
+	}
 
-        json.target = object
-        json.excludes    = context.excludes
-        json.includes    = context.includes
-
-        json.render context.writer
-    }
-
-    private MimeType getAcceptMimeType(RenderContext context) {
-        context.acceptMimeType ?: mimeTypes[0]
-    }
-
+	private MimeType getAcceptMimeType(RenderContext context) {
+		context.acceptMimeType ?: mimeTypes[0]
+	}
 }

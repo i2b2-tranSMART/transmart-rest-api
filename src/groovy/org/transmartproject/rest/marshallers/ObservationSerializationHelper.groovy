@@ -25,28 +25,25 @@
 
 package org.transmartproject.rest.marshallers
 
+import groovy.transform.CompileStatic
+
+@CompileStatic
 class ObservationSerializationHelper extends AbstractHalOrJsonSerializationHelper<ObservationWrapper> {
 
-    final Class targetType = ObservationWrapper
+	final Class targetType = ObservationWrapper
+	final String collectionName = 'observations'
 
-    final String collectionName = 'observations'
+	Map<String, Object> convertToMap(ObservationWrapper observation) {
+		[subject: observation.subject,
+		 label  : observation.label,
+		 value  : observation.value]
+	}
 
-    @Override
-    Map<String, Object> convertToMap(ObservationWrapper observation) {
-        [
-                subject: observation.subject,
-                label:   observation.label,
-                value:   observation.value,
-        ]
-    }
+	Set<String> getEmbeddedEntities(ObservationWrapper observation) {
+		['subject'] as Set
+	}
 
-    @Override
-    Set<String> getEmbeddedEntities(ObservationWrapper observation) {
-        ['subject'] as Set
-    }
-
-    static String getObservationsIndexUrl(String baseUrl) {
-        "${baseUrl}/observations"
-    }
-
+	static String getObservationsIndexUrl(String baseUrl) {
+		baseUrl + '/observations'
+	}
 }

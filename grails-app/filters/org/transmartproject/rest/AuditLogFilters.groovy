@@ -1,34 +1,38 @@
 package org.transmartproject.rest
 
 import org.transmartproject.core.users.User
+import org.transmartproject.db.log.AccessLogService
 
 class AuditLogFilters {
 
-    def accessLogService
-    User currentUserBean
+	AccessLogService accessLogService
+	User currentUserBean
 
-    def filters = {
-        lowDim(controller: 'observation', action:'*') {
-            after = { model ->
-                def fullUrl = "${request.forwardURI}${request.queryString ? '?' + request.queryString : ''}"
-                def ip = request.getHeader('X-FORWARDED-FOR') ?: request.remoteAddr
+	def filters = {
+		lowDim(controller: 'observation', action: '*') {
+			after = { model ->
+				String fullUrl = getFullUrl()
+				accessLogService.report currentUserBean, 'REST API Data Retrieval',
+						eventMessage: "User (IP: ${ip}) got low dim. data with ${fullUrl}",
+						requestURL: fullUrl
+			}
+		}
 
-                accessLogService.report(currentUserBean, 'REST API Data Retrieval',
-                        eventMessage:  "User (IP: ${ip}) got low dim. data with ${fullUrl}",
-                        requestURL: fullUrl)
-            }
-        }
+		highDim(controller: 'highDim', action: '*') {
+			after = { model ->
+				String fullUrl = getFullUrl()
+				accessLogService.report currentUserBean, 'REST API Data Retrieval',
+						eventMessage: "User (IP: ${ip}) got high dim. data with ${fullUrl}",
+						requestURL: fullUrl
+			}
+		}
+	}
 
-        highDim(controller: 'highDim', action:'*') {
-            after = { model ->
-                def fullUrl = "${request.forwardURI}${request.queryString ? '?' + request.queryString : ''}"
-                def ip = request.getHeader('X-FORWARDED-FOR') ?: request.remoteAddr
+	private String getIp() {
+		request.getHeader('X-FORWARDED-FOR') ?: request.remoteAddr
+	}
 
-                accessLogService.report(currentUserBean, 'REST API Data Retrieval',
-                        eventMessage:  "User (IP: ${ip}) got high dim. data with ${fullUrl}",
-                        requestURL: fullUrl)
-            }
-        }
-    }
-
+	private String getFullUrl() {
+		request.forwardURI + (request.queryString ? '?' + request.queryString : '')
+	}
 }

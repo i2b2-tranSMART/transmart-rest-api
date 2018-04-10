@@ -26,6 +26,7 @@
 package org.transmartproject.rest.marshallers
 
 import grails.rest.Link
+import groovy.transform.CompileStatic
 import org.transmartproject.core.concept.ConceptFullName
 import org.transmartproject.core.concept.ConceptKey
 import org.transmartproject.core.ontology.ConceptsResource
@@ -38,88 +39,82 @@ import javax.annotation.Resource
 
 import static grails.rest.render.util.AbstractLinkingRenderer.RELATIONSHIP_SELF
 
+@CompileStatic
 class OntologyTermSerializationHelper extends AbstractHalOrJsonSerializationHelper<OntologyTermWrapper> {
 
-    @Resource
-    StudyLoadingService studyLoadingServiceProxy
+	public static final String RELATIONSHIP_CHILDREN = 'children'
 
-    @Resource
-    ConceptsResource conceptsResourceService
+	@Resource
+	StudyLoadingService studyLoadingServiceProxy
 
-    @Resource
-    OntologyTermTagsResource tagsResource
+	@Resource
+	ConceptsResource conceptsResourceService
 
-    final Class targetType = OntologyTermWrapper
+	@Resource
+	OntologyTermTagsResource tagsResource
 
-    final String collectionName = 'ontology_terms'
+	final Class targetType = OntologyTermWrapper
 
-    public static final RELATIONSHIP_CHILDREN = "children"
+	final String collectionName = 'ontology_terms'
 
-    @Override
-    Collection<Link> getLinks(OntologyTermWrapper obj) {
-        String url = studyLoadingServiceProxy.getOntologyTermUrl(obj.delegate)
+	Collection<Link> getLinks(OntologyTermWrapper obj) {
+		String url = studyLoadingServiceProxy.getOntologyTermUrl(obj.delegate)
 
-        List<Link> result = []
-        result.add(new Link(RELATIONSHIP_SELF, url))
+		List<Link> result = [new Link(RELATIONSHIP_SELF, url)]
 
-        Link datalink
-        if (obj.isHighDim()) {
-            datalink = new Link('highdim', HighDimSummarySerializationHelper.getHighDimIndexUrl(url))
-        } else {
-            datalink = new Link('observations', ObservationSerializationHelper.getObservationsIndexUrl(url))
-        }
+		Link datalink
+		if (obj.isHighDim()) {
+			datalink = new Link('highdim', HighDimSummarySerializationHelper.getHighDimIndexUrl(url))
+		}
+		else {
+			datalink = new Link('observations', ObservationSerializationHelper.getObservationsIndexUrl(url))
+		}
 
-        result.add(datalink)
+		result << datalink
 
-        OntologyTerm concept = obj.delegate
-        for (OntologyTerm ot: concept.children) {
-            Link link = new Link(RELATIONSHIP_CHILDREN, studyLoadingServiceProxy.getOntologyTermUrl(ot))
-            link.setTitle(ot.name)
-            result.add(link)
-        }
+		OntologyTerm concept = obj.delegate
+		for (OntologyTerm ot in concept.children) {
+			Link link = new Link(RELATIONSHIP_CHILDREN, studyLoadingServiceProxy.getOntologyTermUrl(ot))
+			link.title = ot.name
+			result << link
+		}
 
-        def parent = getParent(concept)
-        if (parent) {
-            result.add(new Link("parent", studyLoadingServiceProxy.getOntologyTermUrl(parent)))
-        }
-        result
-    }
+		OntologyTerm parent = getParent(concept)
+		if (parent) {
+			result << new Link('parent', studyLoadingServiceProxy.getOntologyTermUrl(parent))
+		}
+		result
+	}
 
-    private OntologyTerm getParent(OntologyTerm term) {
-        if (term.level < 2) {
-            return null
-        }
+	private OntologyTerm getParent(OntologyTerm term) {
+		if (term.level < 2) {
+			return null
+		}
 
-        def currentKey = new ConceptKey(term.key)
-        def key = new ConceptKey(currentKey.tableCode, new ConceptFullName(term.fullName).parent.toString()).toString()
-        conceptsResourceService.getByKey(key)
-    }
+		ConceptKey currentKey = new ConceptKey(term.key)
+		String key = new ConceptKey(currentKey.tableCode,
+				new ConceptFullName(term.fullName).parent.toString()).toString()
+		conceptsResourceService.getByKey key
+	}
 
-    @Override
-    Map<String, Object> convertToMap(OntologyTermWrapper obj) {
-        OntologyTerm term = obj.delegate
-        def result =
-            [
-                    name:     term.name,
-                    key:      term.key,
-                    fullName: term.fullName,
-                    type:     obj.apiOntologyTermType.name(),
-            ]
+	Map<String, Object> convertToMap(OntologyTermWrapper obj) {
+		OntologyTerm term = obj.delegate
+		Map<String, Object> result = [name    : term.name,
+		                              key     : term.key,
+		                              fullName: term.fullName,
+		                              type    : obj.apiOntologyTermType.name()] as Map
 
-        Map<OntologyTerm, List<OntologyTermTag>> map = tagsResource.getTags([term] as Set, false)
-        List<OntologyTermTag> tags = map.get(term)
+		Map<OntologyTerm, List<OntologyTermTag>> map = tagsResource.getTags([term] as Set, false)
+		List<OntologyTermTag> tags = map[term]
 
-        if (tags && tags.size() > 0) {
-            result.put('metadata', tags.collectEntries { [(it.name): it.description ] })
-        }
+		if (tags) {
+			result.metadata = tags.collectEntries { [(it.name): it.description] }
+		}
 
-        result
-    }
+		result
+	}
 
-    @Override
-    Set<String> getAggregatedLinkRelations() {
-        [RELATIONSHIP_CHILDREN] as Set
-    }
-
-
+	Set<String> getAggregatedLinkRelations() {
+		[RELATIONSHIP_CHILDREN] as Set
+	}
 }

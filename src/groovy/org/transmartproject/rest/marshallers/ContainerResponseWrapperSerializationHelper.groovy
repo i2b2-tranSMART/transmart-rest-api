@@ -26,45 +26,47 @@
 package org.transmartproject.rest.marshallers
 
 import grails.rest.Link
+import groovy.transform.CompileStatic
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.ApplicationContext
 
+@CompileStatic
 class ContainerResponseWrapperSerializationHelper extends AbstractHalOrJsonSerializationHelper<ContainerResponseWrapper> {
 
-    @Autowired
-    ApplicationContext ctx
+	@Autowired
+	ApplicationContext ctx
 
-    final Class<ContainerResponseWrapper> targetType = ContainerResponseWrapper
+	final Class<ContainerResponseWrapper> targetType = ContainerResponseWrapper
 
-    final String collectionName = 'collection'
+	final String collectionName = 'collection'
 
-    HalOrJsonSerializationHelper findComponentTypeHelper(Class targetComponentType) {
-        // TODO cache this
-        ctx.getBeansOfType(HalOrJsonSerializationHelper).values().find {
-            it.targetType == targetComponentType
-        }
-    }
+	HalOrJsonSerializationHelper findComponentTypeHelper(Class targetComponentType) {
+		// TODO cache this
+		ctx.getBeansOfType(HalOrJsonSerializationHelper).values().find {
+			it.targetType == targetComponentType
+		}
+	}
 
-    @Override
-    Collection<Link> getLinks(ContainerResponseWrapper object) {
-        object.links
-    }
+	Collection<Link> getLinks(ContainerResponseWrapper object) {
+		object.links
+	}
 
-    @Override
-    Map<String, Object> convertToMap(ContainerResponseWrapper object) {
-        object.containers.collectEntries {
-            [getKeyForObjectType(it), it.container]
-        }
-    }
+	Map<String, Object> convertToMap(ContainerResponseWrapper object) {
+		object.containers.collectEntries {
+			[getKeyForObjectType(it), it.container]
+		}
+	}
 
-    @Override
-    Set<String> getEmbeddedEntities(ContainerResponseWrapper object) {
-        object.containers.collect {getKeyForObjectType(it)} as Set
-    }
+	Set<String> getEmbeddedEntities(ContainerResponseWrapper object) {
+		object.containers.collect { getKeyForObjectType(it) } as Set
+	}
 
-    private String getKeyForObjectType(ContainerResponseWrapper.entry container) {
-        if (container.key != null) return container.key
-        HalOrJsonSerializationHelper helper = findComponentTypeHelper(container.componentType)
-        helper?.collectionName ?: 'values'
-    }
+	private String getKeyForObjectType(ContainerResponseWrapper.entry container) {
+		if (container.key != null) {
+			container.key
+		}
+		else {
+			findComponentTypeHelper(container.componentType)?.collectionName ?: 'values'
+		}
+	}
 }

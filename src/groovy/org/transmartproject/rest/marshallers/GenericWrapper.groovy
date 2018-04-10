@@ -13,7 +13,7 @@ import grails.rest.Link
 import groovy.transform.CompileStatic
 
 /**
- * This wrapper can be used for generic data such as lists or maps of strings or numbers, for which no dedicated
+ * Used for generic data such as lists or maps of strings or numbers, for which no dedicated
  * wrapper/marshaller exists. The keyword arguments in the constructor (except 'links' and 'embeddedEntities') will be
  * rendered as a JSON object with those attributes.
  *
@@ -22,15 +22,15 @@ import groovy.transform.CompileStatic
  * embedded entities.
  */
 @CompileStatic
-public class GenericWrapper {
+class GenericWrapper {
 
-    Collection<Link> links
-    Set<String> embeddedEntities
-    Map<String,Object> values
+	Collection<Link> links
+	Set<String> embeddedEntities
+	Map<String, Object> values
 
-    public GenericWrapper(Map<String,Object> args) {
-        links = (Collection<Link>) args.remove('links') ?: []
-        embeddedEntities = (args.remove('embeddedEntities') ?: []) as Set<String>
-        values = args
-    }
+	GenericWrapper(Map<String, Object> args) {
+		links = (Collection<Link>) (args.remove('links') ?: [])
+		embeddedEntities = (args.remove('embeddedEntities') ?: []) as Set<String>
+		values = args
+	}
 }

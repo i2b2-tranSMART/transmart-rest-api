@@ -37,92 +37,84 @@ import org.transmartproject.rest.protobuf.HighDimBuilder
 
 class HighDimDataService {
 
-    HighDimensionResource highDimensionResourceService
-    Closure<TabularResult> resultTransformer //optional closure to transform/inspect the high dim data results
+	static transactional = false
 
-    /**
-     * Retrieves the highdim data for the given conceptKey/dataType/projectionName
-     * and writes the protobuf result in the given output stream.
-     * If no projection is specified, we will use the default one for the given dataType.
-     *
-     * @param conceptKey key of the concept to retrieve highdim for
-     * @param dataType highdim data type
-     * @param projectionName name of projection (or null for the default)
-     * @param out output stream to write protobuf to
-     */
-    void write(String conceptKey,
-               String dataType,
-               String projectionName,
-               Map assayConstraintsSpec,
-               Map dataConstraintsSpec,
-               OutputStream out) {
+	HighDimensionResource highDimensionResourceService
+	Closure<TabularResult> resultTransformer //optional closure to transform/inspect the high dim data results
 
-        HighDimensionDataTypeResource typeResource =
-                highDimensionResourceService.getSubResourceForType(dataType)
+	/**
+	 * Retrieves the highdim data for the given conceptKey/dataType/projectionName
+	 * and writes the protobuf result in the given output stream.
+	 * If no projection is specified, we will use the default one for the given dataType.
+	 *
+	 * @param conceptKey key of the concept to retrieve highdim for
+	 * @param dataType highdim data type
+	 * @param projectionName name of projection (or null for the default)
+	 * @param out output stream to write protobuf to
+	 */
+	void write(String conceptKey, String dataType, String projectionName, Map assayConstraintsSpec,
+	           Map dataConstraintsSpec, OutputStream out) {
 
-        String proj = projectionName ?: getDefaultProjectionFor(typeResource.supportedProjections)
-        if (!proj) {
-            throw new InvalidArgumentsException("Projection needs to be specified for $dataType")
-        }
+		HighDimensionDataTypeResource typeResource =
+				highDimensionResourceService.getSubResourceForType(dataType)
 
-        Projection projection = typeResource.createProjection(proj)
+		String proj = projectionName ?: getDefaultProjectionFor(typeResource.supportedProjections)
+		if (!proj) {
+			throw new InvalidArgumentsException('Projection must be specified for ' + dataType)
+		}
 
-        List<AssayConstraint> assayConstraints = [
-                typeResource.createAssayConstraint(
-                        AssayConstraint.ONTOLOGY_TERM_CONSTRAINT,
-                        concept_key: conceptKey)] +
-                assayConstraintsSpec.collect { String type, List instances ->
-                    instances.collect { Map params ->
-                        typeResource.createAssayConstraint(params, type)
-                    }
-                }.flatten()
+		Projection projection = typeResource.createProjection(proj)
 
-        List<DataConstraint> dataConstraints = dataConstraintsSpec.collect {
-                String type, List instances ->
-            instances.collect { Map params ->
-                typeResource.createDataConstraint(params, type)
-            }
-        }.flatten()
+		List<AssayConstraint> assayConstraints = [
+				typeResource.createAssayConstraint(
+						AssayConstraint.ONTOLOGY_TERM_CONSTRAINT,
+						concept_key: conceptKey)] +
+				assayConstraintsSpec.collect { String type, List instances ->
+					instances.collect { Map params ->
+						typeResource.createAssayConstraint params, type
+					}
+				}.flatten()
 
-        TabularResult tabularResult = typeResource.retrieveData(
-                assayConstraints, dataConstraints, projection)
+		List<DataConstraint> dataConstraints = dataConstraintsSpec.collect { String type, List instances ->
+			instances.collect { Map params ->
+				typeResource.createDataConstraint(params, type)
+			}
+		}.flatten()
 
-        if (resultTransformer) {
-            tabularResult = resultTransformer(tabularResult)
-        }
+		TabularResult tabularResult = typeResource.retrieveData(
+				assayConstraints, dataConstraints, projection)
 
-        try {
-            HighDimBuilder.write(projection, tabularResult, out)
-        } finally {
-            tabularResult.close() //closing the tabular result, no matter what
-        }
-    }
+		if (resultTransformer) {
+			tabularResult = resultTransformer(tabularResult)
+		}
 
-    Map<HighDimensionDataTypeResource, Collection<Assay>>  getAvailableHighDimResources(String conceptKey) {
+		try {
+			HighDimBuilder.write projection, tabularResult, out
+		}
+		finally {
+			tabularResult.close() //closing the tabular result, no matter what
+		}
+	}
 
-        AssayConstraint assayConstraint = highDimensionResourceService.createAssayConstraint(
-                AssayConstraint.ONTOLOGY_TERM_CONSTRAINT, concept_key: conceptKey)
+	Map<HighDimensionDataTypeResource, Collection<Assay>> getAvailableHighDimResources(String conceptKey) {
+		AssayConstraint assayConstraint = highDimensionResourceService.createAssayConstraint(
+				AssayConstraint.ONTOLOGY_TERM_CONSTRAINT, concept_key: conceptKey)
+		highDimensionResourceService.getSubResourcesAssayMultiMap([assayConstraint])
+	}
 
-        highDimensionResourceService.getSubResourcesAssayMultiMap([assayConstraint])
-    }
+	/**
+	 * Returns DEFAULT_REAL_PROJECTION if supported, ot the first projection in the given set if not.
+	 */
+	private static String getDefaultProjectionFor(Set<String> supportedProjections) {
+		if (Projection.DEFAULT_REAL_PROJECTION in supportedProjections) {
+			Projection.DEFAULT_REAL_PROJECTION
+		}
+		else if (Projection.ALL_DATA_PROJECTION in supportedProjections) {
+			Projection.ALL_DATA_PROJECTION
+		}
+	}
 
-    /**
-     * Returns DEFAULT_REAL_PROJECTION if supported, ot the first projection in the given set if not.
-     *
-     * @param dataType
-     * @param supportedProjections
-     * @return
-     */
-    private static String getDefaultProjectionFor(Set<String> supportedProjections) {
-        if (Projection.DEFAULT_REAL_PROJECTION in supportedProjections) {
-            Projection.DEFAULT_REAL_PROJECTION
-        } else if (Projection.ALL_DATA_PROJECTION in supportedProjections) {
-            Projection.ALL_DATA_PROJECTION
-        } // else null
-    }
-
-    Projection getProjection(String dataType, String name) {
-        highDimensionResourceService.getSubResourceForType(dataType).createProjection(name)
-    }
-
+	Projection getProjection(String dataType, String name) {
+		highDimensionResourceService.getSubResourceForType(dataType).createProjection name
+	}
 }

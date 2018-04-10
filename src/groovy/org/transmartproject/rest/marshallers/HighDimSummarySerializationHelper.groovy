@@ -26,6 +26,7 @@
 package org.transmartproject.rest.marshallers
 
 import grails.rest.Link
+import groovy.transform.CompileStatic
 import org.transmartproject.rest.StudyLoadingService
 
 import javax.annotation.Resource
@@ -33,39 +34,35 @@ import javax.annotation.Resource
 import static grails.rest.render.util.AbstractLinkingRenderer.RELATIONSHIP_SELF
 import static org.transmartproject.rest.marshallers.MarshallerSupport.getPropertySubsetForSuperType
 
+@CompileStatic
 class HighDimSummarySerializationHelper extends AbstractHalOrJsonSerializationHelper<HighDimSummary> {
 
-    @Resource
-    StudyLoadingService studyLoadingServiceProxy
+	@Resource
+	StudyLoadingService studyLoadingServiceProxy
 
-    Class targetType = HighDimSummary
+	Class targetType = HighDimSummary
 
-    String collectionName = 'dataTypes'
+	String collectionName = 'dataTypes'
 
-    @Override
-    Collection<Link> getLinks(HighDimSummary object) {
-        String conceptUrl = studyLoadingServiceProxy.getOntologyTermUrl(object.conceptWrapper.delegate)
-        String self = getHighDimDataUrl(conceptUrl, object.name)
+	Collection<Link> getLinks(HighDimSummary object) {
+		String conceptUrl = studyLoadingServiceProxy.getOntologyTermUrl(object.conceptWrapper.delegate)
+		String self = getHighDimDataUrl(conceptUrl, object.name)
 
-        List result = [
-                new Link(RELATIONSHIP_SELF, self),
-        ]
+		Collection<Link> result = [new Link(RELATIONSHIP_SELF, self)]
 
-        result.addAll(object.supportedProjections.collect { new Link(it, "${self}&projection=${it}") })
-        result
-    }
+		result.addAll object.supportedProjections.collect { String s -> new Link(s, self + '&projection=' + s) }
+		result
+	}
 
-    @Override
-    Map<String, Object> convertToMap(HighDimSummary object) {
-        getPropertySubsetForSuperType(object, HighDimSummary, ['conceptWrapper','class'] as Set)
-    }
+	Map<String, Object> convertToMap(HighDimSummary object) {
+		getPropertySubsetForSuperType(object, HighDimSummary, ['conceptWrapper', 'class'] as Set)
+	}
 
-    static String getHighDimIndexUrl(String conceptUrl) {
-        "${conceptUrl}/highdim"
-    }
+	static String getHighDimIndexUrl(String conceptUrl) {
+		conceptUrl + '/highdim'
+	}
 
-    static String getHighDimDataUrl(String conceptUrl, String dataType) {
-        "${conceptUrl}/highdim?dataType=${dataType}"
-    }
-
+	static String getHighDimDataUrl(String conceptUrl, String dataType) {
+		conceptUrl + '/highdim?dataType=' + dataType
+	}
 }

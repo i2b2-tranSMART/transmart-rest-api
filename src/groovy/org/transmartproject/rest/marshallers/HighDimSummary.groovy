@@ -25,12 +25,15 @@
 
 package org.transmartproject.rest.marshallers
 
+import groovy.transform.CompileStatic
+
+@CompileStatic
 class HighDimSummary {
-    OntologyTermWrapper conceptWrapper
-    String name // data type name
-    int assayCount
-    Set<String> supportedProjections
-    Set<String> supportedAssayConstraints
-    Set<String> supportedDataConstraints
-    String genomeBuildId
+	OntologyTermWrapper conceptWrapper
+	String name // data type name
+	int assayCount
+	Set<String> supportedProjections
+	Set<String> supportedAssayConstraints
+	Set<String> supportedDataConstraints
+	String genomeBuildId
 }

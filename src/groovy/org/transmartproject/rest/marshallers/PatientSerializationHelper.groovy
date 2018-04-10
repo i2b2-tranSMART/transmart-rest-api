@@ -26,34 +26,33 @@
 package org.transmartproject.rest.marshallers
 
 import grails.rest.Link
+import groovy.transform.CompileStatic
 import org.transmartproject.core.dataquery.Patient
 
 import static grails.rest.render.util.AbstractLinkingRenderer.RELATIONSHIP_SELF
 import static org.transmartproject.rest.marshallers.MarshallerSupport.getPropertySubsetForSuperType
 
+@CompileStatic
 class PatientSerializationHelper extends AbstractHalOrJsonSerializationHelper<Patient> {
 
-    final Class targetType = Patient
+	final Class targetType = Patient
 
-    final String collectionName = 'subjects'
+	final String collectionName = 'subjects'
 
-    def convert(Patient patient) {
-        getPropertySubsetForSuperType(patient, Patient, ['assays'] as Set)
-    }
+	Map<String, Object> convert(Patient patient) {
+		getPropertySubsetForSuperType(patient, Patient, ['assays'] as Set)
+	}
 
-    @Override
-    Collection<Link> getLinks(Patient patient) {
-        def studyName = patient.trial.toLowerCase(Locale.ENGLISH).encodeAsURL()
+	Collection<Link> getLinks(Patient patient) {
+		String studyName = lowerCaseAncodeAsUrl(patient.trial)
 
-        //TODO add more relationships (for instance, the parent study)
-        [new Link(RELATIONSHIP_SELF, "/studies/$studyName/subjects/$patient.id")]
-    }
+		//TODO add more relationships (for instance, the parent study)
+		[new Link(RELATIONSHIP_SELF, "/studies/$studyName/subjects/$patient.id")]
+	}
 
-    @Override
-    Map<String, Object> convertToMap(Patient patient) {
-        Map<String, Object> result = getPropertySubsetForSuperType(patient, Patient, ['assays', 'sex'] as Set)
-        result.put('sex', patient.sex.name()) //sex has to be manually converted (no support for enums)
-        result
-    }
-
+	Map<String, Object> convertToMap(Patient patient) {
+		Map<String, Object> result = getPropertySubsetForSuperType(patient, Patient, ['assays', 'sex'] as Set)
+		result.sex = patient.sex.name() //sex has to be manually converted (no support for enums)
+		result
+	}
 }

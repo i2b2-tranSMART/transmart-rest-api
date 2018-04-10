@@ -25,97 +25,97 @@
 
 package org.transmartproject.rest
 
+import groovy.transform.CompileStatic
+import groovy.util.logging.Slf4j
 import org.codehaus.groovy.grails.web.servlet.mvc.GrailsWebRequest
 import org.springframework.web.context.request.RequestContextHolder
 import org.transmartproject.core.exceptions.AccessDeniedException
 import org.transmartproject.core.exceptions.InvalidArgumentsException
 import org.transmartproject.core.ontology.OntologyTerm
 import org.transmartproject.core.ontology.Study
-import org.transmartproject.core.users.ProtectedOperation
+import org.transmartproject.db.ontology.StudiesResourceService
 import org.transmartproject.rest.misc.CurrentUser
 import org.transmartproject.rest.ontology.OntologyTermCategory
 
+import static org.transmartproject.core.users.ProtectedOperation.WellKnownOperations.API_READ
+
+@CompileStatic
+@Slf4j('logger')
 class StudyLoadingService {
 
-    static transactional = false
+	static scope = 'request'
+	static transactional = false
 
-    static scope = 'request'
+	public static final String STUDY_ID_PARAM = 'studyId'
 
-    public static final String STUDY_ID_PARAM = 'studyId'
+	CurrentUser currentUser
+	StudiesResourceService studiesResourceService
 
-    def studiesResourceService
+	private Study cachedStudy
 
-    CurrentUser currentUser
+	Study getStudy() {
+		if (!cachedStudy) {
+			cachedStudy = fetchStudy()
+		}
 
-    private Study cachedStudy
+		cachedStudy
+	}
 
-    Study getStudy() {
-        if (!cachedStudy) {
-            cachedStudy = fetchStudy()
-        }
+	Study fetchStudy() {
+		GrailsWebRequest webRequest = (GrailsWebRequest) RequestContextHolder.currentRequestAttributes()
+		String studyId = webRequest.params[STUDY_ID_PARAM]
 
-        cachedStudy
-    }
+		if (!studyId) {
+			throw new InvalidArgumentsException('Could not find a study id')
+		}
 
-    Study fetchStudy() {
-        GrailsWebRequest webRequest = RequestContextHolder.currentRequestAttributes()
-        def studyId = webRequest.params.get STUDY_ID_PARAM
+		Study study = studiesResourceService.getStudyById(studyId)
+		if (!checkAccess(study)) {
+			throw new AccessDeniedException("Denied access to study ${study.id}")
+		}
 
-        if (!studyId) {
-            throw new InvalidArgumentsException('Could not find a study id')
-        }
+		study
+	}
 
-        def study = studiesResourceService.getStudyById(studyId)
+	private boolean checkAccess(Study study) {
+		boolean canPerform = currentUser.canPerform(API_READ, study)
+		if (!canPerform) {
+			logger.warn 'User {} denied access to study {}', currentUser.username, study.id
+		}
 
-        if (!checkAccess(study)) {
-            throw new AccessDeniedException("Denied access to study ${study.id}")
-        }
+		canPerform
+	}
 
-        study
-    }
+	String getStudyLowercase() {
+		study.id.toLowerCase Locale.ENGLISH
+	}
 
-    private boolean checkAccess(Study study) {
-        def result = currentUser.canPerform(
-                ProtectedOperation.WellKnownOperations.API_READ, study)
-        if (!result) {
-            def username = currentUser.username
-            log.warn "User $username denied access to study ${study.id}"
-        }
+	/**
+	 * @param term ontology term
+	 * @return url for given ontology term and request study or concept study
+	 */
+	String getOntologyTermUrl(OntologyTerm term) {
+		String studyId
+		String pathPart
 
-        result
-    }
+		try {
+			studyId = study.id
+			pathPart = OntologyTermCategory.encodeAsURLPart(term, study)
+		}
+		catch (InvalidArgumentsException ignored) {
+			//studyId not in params: either /studies or a study controller
+			studyId = term.study.id
+			if (term.level == 1) {
+				//we are handling a study, which is mapped to $id (can we rename the param to $studyId for consistency?)
+				pathPart = 'ROOT'
+			}
+			else {
+				pathPart = OntologyTermCategory.encodeAsURLPart(term, term.study)
+			}
+		}
 
-    String getStudyLowercase() {
-        study.id.toLowerCase(Locale.ENGLISH)
-    }
+		studyId = URLEncoder.encode(studyId.toLowerCase(Locale.ENGLISH), 'UTF-8')
 
-    /**
-     * @param term ontology term
-     * @return url for given ontology term and request study or concept study
-     */
-    String getOntologyTermUrl(OntologyTerm term) {
-        String studyId
-        def pathPart
-
-        try {
-            studyId = study.id
-            use (OntologyTermCategory) {
-                pathPart = term.encodeAsURLPart study
-            }
-        } catch (InvalidArgumentsException iae) {
-            //studyId not in params: either /studies or a study controller
-            studyId = term.study.id
-            if (term.level == 1) {
-                //we are handling a study, which is mapped to $id (can we rename the param to $studyId for consistency?)
-                pathPart = 'ROOT'
-            } else {
-                use (OntologyTermCategory) {
-                    pathPart = term.encodeAsURLPart term.study
-                }
-            }
-        }
-        studyId = studyId.toLowerCase(Locale.ENGLISH).encodeAsURL()
-        "/studies/$studyId/concepts/$pathPart"
-    }
-
+		"/studies/$studyId/concepts/$pathPart"
+	}
 }

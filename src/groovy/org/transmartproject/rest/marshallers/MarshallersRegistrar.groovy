@@ -26,7 +26,7 @@
 package org.transmartproject.rest.marshallers
 
 import grails.converters.JSON
-import groovy.util.logging.Log4j
+import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.FactoryBean
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.config.BeanDefinition
@@ -48,78 +48,73 @@ import static org.springframework.beans.factory.support.BeanDefinitionReaderUtil
  * Also register the {@link IteratorMarshaller} so that
  * {@link grails.converters.JSON} knows how to handle them.
  */
-@Log4j
-public class MarshallersRegistrar implements FactoryBean {
+@Slf4j('logger')
+class MarshallersRegistrar implements FactoryBean {
 
-    @Autowired
-    ApplicationContext ctx
+	@Autowired
+	ApplicationContext ctx
 
-    @Autowired
-    IteratorMarshaller iteratorMarshaller
+	@Autowired
+	IteratorMarshaller iteratorMarshaller
 
-    String packageName
+	String packageName
 
-    void scanForClasses() {
-        ClassPathScanningCandidateComponentProvider scanner = new
-                ClassPathScanningCandidateComponentProvider(false, ctx.environment)
+	void scanForClasses() {
+		ClassPathScanningCandidateComponentProvider scanner =
+				new ClassPathScanningCandidateComponentProvider(false, ctx.environment)
 
-        scanner.addIncludeFilter(
-                new AssignableTypeFilter(HalOrJsonSerializationHelper))
-        Set<BeanDefinition> serializationHelpers =
-                scanner.findCandidateComponents packageName
+		scanner.addIncludeFilter new AssignableTypeFilter(HalOrJsonSerializationHelper)
+		Set<BeanDefinition> serializationHelpers = scanner.findCandidateComponents packageName
 
-        for (BeanDefinition helperDef: serializationHelpers) {
-            log.debug "Processing serialization helper ${helperDef.beanClassName}"
+		for (BeanDefinition helperDef in serializationHelpers) {
+			logger.debug 'Processing serialization helper {}', helperDef.beanClassName
 
-            // register serialization helper
-            def helperDefinitionHolder = createHolderForHelper(helperDef)
-            registerBeanDefinition helperDefinitionHolder, ctx
+			// register serialization helper
+			BeanDefinitionHolder helperDefinitionHolder = createHolderForHelper(helperDef)
+			registerBeanDefinition helperDefinitionHolder, ctx
 
-            //create and register marshaller
-            def marshaller = new CoreApiObjectMarshaller(
-                    serializationHelper: ctx.getBean(helperDefinitionHolder.beanName))
-            JSON.registerObjectMarshaller marshaller
+			//create and register marshaller
+			CoreApiObjectMarshaller marshaller = new CoreApiObjectMarshaller(
+					serializationHelper: ctx.getBean(helperDefinitionHolder.beanName))
+			JSON.registerObjectMarshaller marshaller
 
-            // create renderer bean and register it on the application context
-            registerBeanDefinition createHolderForRenderer(marshaller.targetType), ctx
-        }
+			// create renderer bean and register it on the application context
+			registerBeanDefinition createHolderForRenderer(marshaller.targetType), ctx
+		}
 
-        // force initialization of renderers
-        ctx.getBeansOfType(HalOrJsonRenderer)
-    }
+		// force initialization of renderers
+		ctx.getBeansOfType HalOrJsonRenderer
+	}
 
-    BeanDefinitionHolder createHolderForHelper(BeanDefinition helperBeanDefinition) {
-        new BeanDefinitionHolder(helperBeanDefinition,
-                uncapitalize(helperBeanDefinition.beanClassName))
-    }
+	BeanDefinitionHolder createHolderForHelper(BeanDefinition helperBeanDefinition) {
+		new BeanDefinitionHolder(helperBeanDefinition,
+				uncapitalize(helperBeanDefinition.beanClassName))
+	}
 
-    BeanDefinitionHolder createHolderForRenderer(Class targetType) {
-        BeanDefinitionBuilder builder =
-                BeanDefinitionBuilder.rootBeanDefinition(HalOrJsonRenderer).
-                        addConstructorArgValue(targetType)
+	BeanDefinitionHolder createHolderForRenderer(Class targetType) {
+		BeanDefinitionBuilder builder =
+				BeanDefinitionBuilder.rootBeanDefinition(HalOrJsonRenderer).
+						addConstructorArgValue(targetType)
 
-        String beanName = (targetType.simpleName -
-                'SerializationHelper') +'Renderer'
+		String beanName = (targetType.simpleName - 'SerializationHelper') + 'Renderer'
 
-        new BeanDefinitionHolder(builder.beanDefinition, uncapitalize(beanName))
-    }
+		new BeanDefinitionHolder(builder.beanDefinition, uncapitalize(beanName))
+	}
 
-    static String uncapitalize(String original) {
-        original[0].toLowerCase(Locale.ENGLISH) + original.substring(1)
-    }
+	static String uncapitalize(String original) {
+		original[0].toLowerCase(Locale.ENGLISH) + original.substring(1)
+	}
 
-    private void registerMiscMarshallers() {
-        JSON.registerObjectMarshaller iteratorMarshaller, DEFAULT_PRIORITY - 10
-    }
+	private void registerMiscMarshallers() {
+		JSON.registerObjectMarshaller iteratorMarshaller, DEFAULT_PRIORITY - 10
+	}
 
-    @Override
-    Object getObject() throws Exception {
-        scanForClasses()
-        registerMiscMarshallers()
-        null /* we only this factory bean for the side effects */
-    }
+	def getObject() {
+		scanForClasses()
+		registerMiscMarshallers()
+		null // we only this factory bean for the side effects
+	}
 
-    final Class<?> objectType = null
-    final boolean singleton = false
+	final Class<?> objectType = null
+	final boolean singleton = false
 }
-

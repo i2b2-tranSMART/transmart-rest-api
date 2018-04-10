@@ -2,11 +2,13 @@ package org.transmartproject.rest.misc
 
 import grails.plugin.springsecurity.SpringSecurityService
 import grails.plugin.springsecurity.SpringSecurityUtils
-import groovy.util.logging.Log4j
+import groovy.transform.CompileStatic
+import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.context.annotation.ScopedProxyMode
 import org.springframework.stereotype.Component
+import org.transmart.plugin.shared.SecurityService
 import org.transmartproject.core.exceptions.AccessDeniedException
 import org.transmartproject.core.users.ProtectedOperation
 import org.transmartproject.core.users.ProtectedResource
@@ -16,79 +18,70 @@ import org.transmartproject.core.users.UsersResource
 /**
  * Spring request-scoped bean that makes it easy to fetch the logged in user.
  */
+@CompileStatic
 @Component
 @Scope(value = 'request', proxyMode = ScopedProxyMode.TARGET_CLASS)
-@Log4j
+@Slf4j('logger')
 class CurrentUser implements User {
 
-    @Autowired
-    private UsersResource usersResourceService
+	@Autowired private SecurityService securityService
+	@Autowired private UsersResource usersResourceService
 
-    @Autowired(required = false)
-    SpringSecurityService springSecurityService
+	@Autowired(required = false)
+	private SpringSecurityService springSecurityService
 
-    @Lazy
-    private User delegate = { ->
-        if (springSecurityService == null ||
-                !SpringSecurityUtils.securityConfig.active) {
-            log.warn "Spring security service not available or inactive, " +
-                    "returning dummy user administrator"
-            return new DummyAdministrator()
-        }
+	private Closure<User> lazyUser = { ->
+		if (springSecurityService == null || !SpringSecurityUtils.securityConfig.active) {
+			logger.warn 'Spring security service not available or inactive, returning dummy user administrator'
+			return new DummyAdministrator()
+		}
 
-        if (!springSecurityService.isLoggedIn()) {
-            log.warn "User is not logged in; throwing"
-            throw new AccessDeniedException('User is not logged in')
-        }
+		if (!springSecurityService.isLoggedIn()) {
+			logger.warn 'User is not logged in; throwing'
+			throw new AccessDeniedException('User is not logged in')
+		}
 
-        def username = springSecurityService.principal.username
+		usersResourceService.getUserFromUsername securityService.currentUsername()
+	}
+	@Lazy private User delegate = lazyUser()
 
-        usersResourceService.getUserFromUsername(username)
-    }()
+	Long getId() {
+		delegate.id
+	}
 
-    @Override
-    Long getId() {
-        delegate.id
-    }
+	String getUsername() {
+		delegate.username
+	}
 
-    @Override
-    String getUsername() {
-        delegate.username
-    }
+	String getRealName() {
+		delegate.realName
+	}
 
-    @Override
-    String getRealName() {
-        delegate.realName
-    }
+	boolean canPerform(ProtectedOperation operation, ProtectedResource protectedResource) {
+		delegate.canPerform operation, protectedResource
+	}
 
-    @Override
-    boolean canPerform(ProtectedOperation operation, ProtectedResource protectedResource) {
-        delegate.canPerform(operation, protectedResource)
-    }
+	void checkAccess(ProtectedOperation operation, ProtectedResource resource) {
+		if (!canPerform(operation, resource)) {
+			throw new AccessDeniedException(
+					"Denied user $this permission to effect operation $operation on resource $resource")
+		}
+	}
 
-    void checkAccess(ProtectedOperation operation, ProtectedResource resource) {
-        if (!canPerform(operation, resource)) {
-            throw new AccessDeniedException("Denied user $this permission " +
-                    "to effect operation $operation on resource $resource")
-        }
-    }
+	String toString() {
+		'CurrentUser(' + delegate + ')'
+	}
 
-    @Override
-    String toString() {
-        "CurrentUser(${delegate.toString()})"
-    }
+	@CompileStatic
+	static class DummyAdministrator implements User {
 
-    static class DummyAdministrator implements User {
+		// These correspond to the properties of the default transmart administrator user
+		final Long id = 1
+		final String username = 'admin'
+		final String realName = 'Sys Admin'
 
-        /* These correspond to the properties of the default transmart
-         * administrator user */
-        final Long id = 1
-        final String username = 'admin'
-        final String realName = 'Sys Admin'
-
-        @Override
-        boolean canPerform(ProtectedOperation operation, ProtectedResource protectedResource) {
-            true
-        }
-    }
+		boolean canPerform(ProtectedOperation operation, ProtectedResource protectedResource) {
+			true
+		}
+	}
 }

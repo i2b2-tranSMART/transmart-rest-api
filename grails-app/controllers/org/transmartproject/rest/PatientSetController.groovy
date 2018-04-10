@@ -18,62 +18,55 @@ import static org.transmartproject.core.users.ProtectedOperation.WellKnownOperat
  */
 class PatientSetController {
 
-    static responseFormats = ['json', 'hal']
+	static responseFormats = ['json', 'hal']
 
-    @Autowired
-    private QueriesResource queriesResource
+	@Autowired private QueriesResource queriesResource
+	@Autowired QueryDefinitionXmlConverter queryDefinitionXmlConverter
+	@Autowired CurrentUser currentUser
 
-    @Autowired
-    QueryDefinitionXmlConverter queryDefinitionXmlConverter
+	/**
+	 * Not yet supported in core-api.
+	 *
+	 * GET /patient_sets
+	 */
+	def index() {
+		throw new NoSuchResourceException('Listing previously created patient resources is not yet possible')
+	}
 
-    @Autowired
-    CurrentUser currentUser
+	/**
+	 * Show details of a patient set
+	 *
+	 * GET /patient_sets/<result_instance_id>
+	 */
+	def show(Long id) {
+		QueryResult queryResult = queriesResource.getQueryResultFromId(id)
 
-    /**
-     * Not yet supported in core-api.
-     *
-     * GET /patient_sets
-     */
-    def index() {
-        throw new NoSuchResourceException('Listing previously created ' +
-                'patient resources is not yet possible')
-    }
+		currentUser.checkAccess READ, queryResult
 
-    /**
-     * Show details of a patient set
-     *
-     * GET /patient_sets/<result_instance_id>
-     */
-    def show(Long id) {
-        QueryResult queryResult = queriesResource.getQueryResultFromId(id)
+		respond queryResult
+	}
 
-        currentUser.checkAccess(READ, queryResult)
+	/**
+	 * Create a new patient set.
+	 *
+	 * POST /patient_sets
+	 */
+	def save() {
+		if (!request.contentType) {
+			throw new InvalidRequestException('No content type provided')
+		}
+		MimeType mimeType = new MimeType(request.contentType)
 
-        respond queryResult
-    }
+		if (!(mimeType in [MimeType.XML, MimeType.TEXT_XML])) {
+			throw new InvalidRequestException(
+					'Content type should been text/xml or application/xml; got ' + mimeType)
+		}
 
-    /**
-     * Create a new patient set.
-     *
-     * POST /patient_sets
-     */
-    def save() {
-        if (!request.contentType) {
-            throw new InvalidRequestException('No content type provided')
-        }
-        MimeType mimeType = new MimeType(request.contentType)
+		QueryDefinition queryDefinition = queryDefinitionXmlConverter.fromXml(request.reader)
 
-        if (!(mimeType in [MimeType.XML, MimeType.TEXT_XML])) {
-            throw new InvalidRequestException("Content type should been " +
-                    "text/xml or application/xml; got $mimeType")
-        }
+		currentUser.checkAccess BUILD_COHORT, queryDefinition
 
-        QueryDefinition queryDefinition =
-                queryDefinitionXmlConverter.fromXml(request.reader)
-
-        currentUser.checkAccess(BUILD_COHORT, queryDefinition)
-
-        respond queriesResource.runQuery(queryDefinition, currentUser.username),
-                [status: 201]
-    }
+		respond queriesResource.runQuery(queryDefinition, currentUser.username),
+				[status: 201]
+	}
 }

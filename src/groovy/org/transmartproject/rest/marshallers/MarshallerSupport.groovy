@@ -25,21 +25,20 @@
 
 package org.transmartproject.rest.marshallers
 
+import groovy.transform.CompileStatic
+
+@CompileStatic
 class MarshallerSupport {
 
-    static Map<String, Object> getPropertySubsetForSuperType(Object o,
-                                                             Class superType,
-                                                             Set<String> excludes = [] as Set) {
-        if (!superType.isAssignableFrom(o.getClass())) {
-            throw new IllegalArgumentException("Object '$o' is not of type " +
-                    "$superType")
-        }
+	static Map<String, Object> getPropertySubsetForSuperType(o, Class superType, Set<String> excludes = []) {
+		if (!superType.isAssignableFrom(o.getClass())) {
+			throw new IllegalArgumentException("Object '$o' is not of type " + superType)
+		}
 
-        superType.metaClass.properties.findAll {
-            !(it.name in excludes)
-        }.collectEntries { MetaBeanProperty prop ->
-            [prop.name, prop.getProperty(o)]
-        }
-    }
-
+		superType.metaClass.properties.findAll { MetaProperty it ->
+			!(it.name in excludes)
+		}.collectEntries { MetaProperty prop ->
+			[prop.name, prop.getProperty(o)]
+		}
+	}
 }

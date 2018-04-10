@@ -138,7 +138,6 @@ class HighDimBuilderTests {
     class TestProjection implements MultiValueProjection, Projection {
         Map<String, Class> dataProperties
 
-        @Override
         Object doWithResult(Object o) {}
     }
 
@@ -149,23 +148,19 @@ class HighDimBuilderTests {
 
         String label = 'test label'
 
-        @Override
         Object getAt(int i) {
             data[i]
         }
 
-        @Override
         Object getAt(Object o) {
             def indx = assayColumns.findIndexOf { o == it }
             data[indx]
         }
 
-        @Override
         Object getAt(AssayColumn assayColumn) {
             getAt(assayColumn)
         }
 
-        @Override
         Iterator<Object> iterator() {
             data.iterator()
         }

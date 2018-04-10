@@ -1,24 +1,27 @@
 package org.transmartproject.rest.marshallers
 
 import grails.rest.Link
+import groovy.transform.CompileStatic
 
 /**
  * Abstract impl of HalOrJsonSerializationHelper, just to implement common defaults and absorb future interface changes
  */
+@CompileStatic
 abstract class AbstractHalOrJsonSerializationHelper<T> implements HalOrJsonSerializationHelper<T> {
 
-    @Override
-    Collection<Link> getLinks(T object) {
-        [] as Collection
-    }
+	Collection<Link> getLinks(T object) {
+		[]
+	}
 
-    @Override
-    Set<String> getEmbeddedEntities(T object) {
-        [] as Set
-    }
+	Set<String> getEmbeddedEntities(T object) {
+		[] as Set
+	}
 
-    @Override
-    Set<String> getAggregatedLinkRelations() {
-        [] as Set
-    }
+	Set<String> getAggregatedLinkRelations() {
+		[] as Set
+	}
+
+	protected String lowerCaseAncodeAsUrl(String s) {
+		URLEncoder.encode s.toLowerCase(Locale.ENGLISH), 'UTF-8'
+	}
 }

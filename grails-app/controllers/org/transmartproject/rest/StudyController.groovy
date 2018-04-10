@@ -27,43 +27,41 @@ package org.transmartproject.rest
 
 import grails.rest.Link
 import grails.rest.render.util.AbstractLinkingRenderer
-
-import javax.annotation.Resource
-
 import org.transmartproject.core.ontology.StudiesResource
 import org.transmartproject.core.ontology.Study
 import org.transmartproject.rest.marshallers.ContainerResponseWrapper
 
+import javax.annotation.Resource
+
 class StudyController {
 
-    static responseFormats = ['json', 'hal']
+	static responseFormats = ['json', 'hal']
 
-    @Resource
-    StudiesResource studiesResourceService
+	@Resource
+	StudiesResource studiesResourceService
 
-    /** GET request on /studies/
-     *  This will return the list of studies, where each study will be rendered in its short format
-    */
-    def index() {
-        respond wrapStudies(studiesResourceService.studySet)
-    }
+	/**
+	 * GET request on /studies/
+	 * Return studies where each study will be rendered in its short format
+	 */
+	def index() {
+		respond wrapStudies(studiesResourceService.studySet)
+	}
 
-    /** GET request on /studies/${id}
-     *  This returns the single study by name.
-     *
-     *  @param name the name of the study
-     */
-    def show(String id) {
-        respond studiesResourceService.getStudyById(id)
-    }
-    
-    private wrapStudies(Object source) {
-        new ContainerResponseWrapper
-        (
-            container: source,
-            componentType: Study,
-            links: [ new Link(AbstractLinkingRenderer.RELATIONSHIP_SELF, "/studies") ]
-        )
-    }
-    
+	/**
+	 * GET request on /studies/${id}.
+	 * Returns the single study by name.
+	 *
+	 * @param name the name of the study
+	 */
+	def show(String id) {
+		respond studiesResourceService.getStudyById(id)
+	}
+
+	private wrapStudies(source) {
+		new ContainerResponseWrapper(
+				container: source,
+				componentType: Study,
+				links: [new Link(AbstractLinkingRenderer.RELATIONSHIP_SELF, '/studies')])
+	}
 }

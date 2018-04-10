@@ -26,56 +26,53 @@
 package org.transmartproject.rest
 
 import grails.rest.Link
-import groovy.transform.TypeChecked
+import grails.rest.render.util.AbstractLinkingRenderer
 import org.transmartproject.core.ontology.ConceptsResource
+import org.transmartproject.core.ontology.OntologyTerm
 import org.transmartproject.rest.marshallers.ContainerResponseWrapper
 import org.transmartproject.rest.marshallers.OntologyTermWrapper
 import org.transmartproject.rest.ontology.OntologyTermCategory
 
 class ConceptController {
 
-    static responseFormats = ['json', 'hal']
+	static responseFormats = ['json', 'hal']
 
-    StudyLoadingService studyLoadingServiceProxy
-    ConceptsResource conceptsResourceService
+	ConceptsResource conceptsResourceService
+	StudyLoadingService studyLoadingServiceProxy
 
-    /** GET request on /studies/XXX/concepts/
-     *  This will return the list of concepts, where each concept will be rendered in its short format
-    */
-    def index() {
-        def concepts = studyLoadingServiceProxy.study.ontologyTerm.allDescendants
-        def conceptWrappers = concepts.collect { new OntologyTermWrapper(it, false) }
-        respond wrapConcepts(conceptWrappers)
-    }
+	/**
+	 * GET request on /studies/XXX/concepts/
+	 * Returns concepts where each is rendered in its short format
+	 */
+	def index() {
+		List<OntologyTerm> concepts = studyLoadingServiceProxy.study.ontologyTerm.allDescendants
+		List<OntologyTermWrapper> conceptWrappers = concepts.collect { new OntologyTermWrapper(it, false) }
+		respond wrapConcepts(conceptWrappers)
+	}
 
-    /** GET request on /studies/XXX/concepts/${id}
-     *  This returns the single requested entity.
-     *
-     *  @param id The id for which to return study information.
-     */
-    def show(String id) {
-        use (OntologyTermCategory) {
-            String key = id.keyFromURLPart studyLoadingServiceProxy.study
-            def concept = conceptsResourceService.getByKey(key)
-            respond new OntologyTermWrapper(concept,
-                    id == OntologyTermCategory.ROOT_CONCEPT_PATH)
-        }
-    }
+	/**
+	 * GET request on /studies/XXX/concepts/${id}.
+	 * Returns the single requested entity.
+	 *
+	 * @param id The id for which to return study information.
+	 */
+	def show(String id) {
+		String key = OntologyTermCategory.keyFromURLPart(id, studyLoadingServiceProxy.study)
+		respond new OntologyTermWrapper(
+				conceptsResourceService.getByKey(key),
+				id == OntologyTermCategory.ROOT_CONCEPT_PATH)
+	}
 
-    /**
-     * @param source
-     * @return CollectionResponseWrapper so we can provide a proper HAL response
-     */
-    private ContainerResponseWrapper wrapConcepts(List<OntologyTermWrapper> source) {
-        new ContainerResponseWrapper(
-                container: source,
-                componentType: OntologyTermWrapper,
-                links: [
-                        new Link(grails.rest.render.util.AbstractLinkingRenderer.RELATIONSHIP_SELF,
-                                "/studies/${studyLoadingServiceProxy.studyLowercase}/concepts"
-                        )
-                ]
-        )
-    }
-
+	/**
+	 * @return CollectionResponseWrapper so we can provide a proper HAL response
+	 */
+	private ContainerResponseWrapper wrapConcepts(List<OntologyTermWrapper> source) {
+		new ContainerResponseWrapper(
+				container: source,
+				componentType: OntologyTermWrapper,
+				links: [new Link(
+						AbstractLinkingRenderer.RELATIONSHIP_SELF,
+						'/studies/' + studyLoadingServiceProxy.studyLowercase + '/concepts')]
+		)
+	}
 }

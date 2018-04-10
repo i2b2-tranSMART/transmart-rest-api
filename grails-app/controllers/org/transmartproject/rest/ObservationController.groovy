@@ -29,7 +29,11 @@ import com.google.common.collect.AbstractIterator
 import grails.web.RequestParameter
 import org.transmartproject.core.dataquery.Patient
 import org.transmartproject.core.dataquery.TabularResult
-import org.transmartproject.core.dataquery.clinical.*
+import org.transmartproject.core.dataquery.clinical.ClinicalDataResource
+import org.transmartproject.core.dataquery.clinical.ClinicalVariable
+import org.transmartproject.core.dataquery.clinical.ClinicalVariableColumn
+import org.transmartproject.core.dataquery.clinical.PatientRow
+import org.transmartproject.core.dataquery.clinical.PatientsResource
 import org.transmartproject.core.exceptions.InvalidArgumentsException
 import org.transmartproject.core.exceptions.NoSuchResourceException
 import org.transmartproject.core.ontology.ConceptsResource
@@ -45,252 +49,252 @@ import static org.transmartproject.core.dataquery.clinical.ClinicalVariable.NORM
 
 class ObservationController {
 
-    static responseFormats = ['json', 'hal']
+	static responseFormats = ['json', 'hal']
 
-    ClinicalDataResource clinicalDataResourceService
-    StudyLoadingService studyLoadingServiceProxy
-    PatientsResource patientsResourceService
-    ConceptsResource conceptsResourceService
-    QueriesResource queriesResourceService
+	ClinicalDataResource clinicalDataResourceService
+	ConceptsResource conceptsResourceService
+	PatientsResource patientsResourceService
+	QueriesResource queriesResourceService
+	StudyLoadingService studyLoadingServiceProxy
 
-    /** GET request on /studies/XXX/observations/
-     *  This will return the list of observations for study XXX
-     */
-    def index() {
-        def study = studyLoadingServiceProxy.study
-        def variables = [createClinicalVariable(study.ontologyTerm)]
-        TabularResult<ClinicalVariable, PatientRow> observations =
-                clinicalDataResourceService.retrieveData(
-                        study, variables)
-        try {
-            respond wrapObservations(observations, variables)
-        } finally {
-            observations.close()
-        }
-    }
+	/**
+	 * GET request on /studies/XXX/observations/
+	 * Returns observations for study XXX
+	 */
+	def index() {
+		Study study = studyLoadingServiceProxy.study
+		List<ClinicalVariable> variables = [createClinicalVariable(study.ontologyTerm)]
+		TabularResult<ClinicalVariable, PatientRow> observations =
+				clinicalDataResourceService.retrieveData(study, variables)
+		try {
+			respond wrapObservations(observations, variables)
+		}
+		finally {
+			observations.close()
+		}
+	}
 
-    /**
-     * GET /observations
-     * Not bound to a study.
-     *
-     * Parameters: patient_sets  => list of result instance ids or
-     *                              single patient set id (integer)
-     *                              Cannot be combined with patients
-     *             patients      => list of patient ids or
-     *                              single patient id (integer)
-     *                              Cannot be combined with patient_sets.
-     *                              Avoid specifying a large list for
-     *                              performance reasons
-     *             concept_paths => list of concepts paths or
-     *                              single concept path (string).
-     *                              Mandatory
-     *
-     *             variable_type => the type of clinical variable to create.
-     *                              Defaults to 'normalized_leafs_variable'
-     *
-     * List
-     */
-    def indexStandalone(@RequestParameter('variable_type') String variableType) {
-        List<Long> resultInstanceIds
-        List<Long> patientIds
-        List<String> conceptPaths
-        wrapException(NumberFormatException) {
-            resultInstanceIds = params.getList('patient_sets')
-                    .collect { it as Long }
-            patientIds = params.getList('patients').collect { it as Long }
-            conceptPaths = params.getList('concept_paths')
-        }
+	/**
+	 * GET /observations
+	 * Not bound to a study.
+	 *
+	 * Parameters: patient_sets  => list of result instance ids or
+	 *                              single patient set id (integer)
+	 *                              Cannot be combined with patients
+	 *             patients      => list of patient ids or
+	 *                              single patient id (integer)
+	 *                              Cannot be combined with patient_sets.
+	 *                              Avoid specifying a large list for
+	 *                              performance reasons
+	 *             concept_paths => list of concepts paths or
+	 *                              single concept path (string).
+	 *                              Mandatory
+	 *
+	 *             variable_type => the type of clinical variable to create.
+	 *                              Defaults to 'normalized_leafs_variable'
+	 *
+	 * List
+	 */
+	def indexStandalone(@RequestParameter('variable_type') String variableType) {
+		List<Long> resultInstanceIds
+		List<Long> patientIds
+		List<String> conceptPaths
+		wrapException(NumberFormatException) {
+			resultInstanceIds = params.getList('patient_sets').collect { it as Long }
+			patientIds = params.getList('patients').collect { it as Long }
+			conceptPaths = params.getList('concept_paths')
+		}
 
-        if (resultInstanceIds && patientIds) {
-            throw new InvalidArgumentsException('patient_sets and patients ' +
-                    'cannot be given simultaneously')
-        }
-        if (!resultInstanceIds && !patientIds) {
-            throw new InvalidArgumentsException(
-                    'Either patient_sets or patients must be given')
-        }
-        if (!conceptPaths) {
-            throw new InvalidArgumentsException(
-                    'At least one concept path must be given')
-        }
+		if (resultInstanceIds && patientIds) {
+			throw new InvalidArgumentsException('patient_sets and patients cannot be given simultaneously')
+		}
+		if (!resultInstanceIds && !patientIds) {
+			throw new InvalidArgumentsException(
+					'Either patient_sets or patients must be given')
+		}
+		if (!conceptPaths) {
+			throw new InvalidArgumentsException(
+					'At least one concept path must be given')
+		}
 
-        List<ClinicalVariable> variables
-        wrapException(IllegalArgumentException) {
-            variables = conceptPaths.collect {
-                clinicalDataResourceService.createClinicalVariable(
-                        variableType ?: NORMALIZED_LEAFS_VARIABLE,
-                        concept_path: it)
-            }
-        }
+		List<ClinicalVariable> variables
+		wrapException(IllegalArgumentException) {
+			variables = conceptPaths.collect {
+				clinicalDataResourceService.createClinicalVariable(
+						variableType ?: NORMALIZED_LEAFS_VARIABLE,
+						concept_path: it)
+			}
+		}
 
-        TabularResult<ClinicalVariable, PatientRow> observations
+		TabularResult<ClinicalVariable, PatientRow> observations
 
-        if (resultInstanceIds) {
-            List<QueryResult> queryResults
-            wrapException(NoSuchResourceException) {
-                queryResults = resultInstanceIds.collect {
-                    queriesResourceService.getQueryResultFromId(it)
-                }
-            }
+		if (resultInstanceIds) {
+			List<QueryResult> queryResults
+			wrapException(NoSuchResourceException) {
+				queryResults = resultInstanceIds.collect {
+					queriesResourceService.getQueryResultFromId(it)
+				}
+			}
 
-            observations = clinicalDataResourceService.retrieveData(
-                    queryResults, variables)
-        } else {
-            Set<Patient> patients
-            wrapException(NoSuchResourceException) {
-                patients = patientIds.collect {
-                    patientsResourceService.getPatientById(it)
-                }
-            }
+			observations = clinicalDataResourceService.retrieveData(queryResults, variables)
+		}
+		else {
+			Set<Patient> patients
+			wrapException(NoSuchResourceException) {
+				patients = patientIds.collect {
+					patientsResourceService.getPatientById(it)
+				}
+			}
 
-            observations = clinicalDataResourceService.retrieveData(
-                    patients, variables)
-        }
+			observations = clinicalDataResourceService.retrieveData(patients, variables)
+		}
 
-        try {
-            respond wrapObservations(observations, variables)
-        } finally {
-            observations.close()
-        }
-    }
+		try {
+			respond wrapObservations(observations, variables)
+		}
+		finally {
+			observations.close()
+		}
+	}
 
-    /** GET request on /studies/XXX/concepts/YYY/observations/
-     *  This will return the list of observations for study XXX and concept YYY
-     */
-    def indexByConcept() {
-        def variables = [createClinicalVariable(concept)]
-        TabularResult<ClinicalVariable, PatientRow> observations =
-                clinicalDataResourceService.retrieveData(
-                        study, variables)
-        try {
-            respond wrapObservations(observations, variables)
-        } finally {
-            observations.close()
-        }
-    }
+	/**
+	 * GET request on /studies/XXX/concepts/YYY/observations/
+	 * Returns observations for study XXX and concept YYY
+	 */
+	def indexByConcept() {
+		List<ClinicalVariable> variables = [createClinicalVariable(concept)]
+		TabularResult<ClinicalVariable, PatientRow> observations =
+				clinicalDataResourceService.retrieveData(study, variables)
+		try {
+			respond wrapObservations(observations, variables)
+		}
+		finally {
+			observations.close()
+		}
+	}
 
-    /** GET request on /studies/XXX/subjects/YYY/observations/
-     *  This will return the list of observations for study XXX and subject YYY
-     */
-    def indexBySubject() {
-        def variables = [createClinicalVariable(study.ontologyTerm)]
-        TabularResult<ClinicalVariable, PatientRow> observations =
-                clinicalDataResourceService.retrieveData(
-                        [patient] as Set, variables)
-        try {
-            respond wrapObservations(observations, variables)
-        } finally {
-            observations.close()
-        }
-    }
+	/**
+	 * GET request on /studies/XXX/subjects/YYY/observations/
+	 * Returns observations for study XXX and subject YYY
+	 */
+	def indexBySubject() {
+		TabularResult<ClinicalVariable, PatientRow> observations =
+				clinicalDataResourceService.retrieveData(
+						[patient] as Set, [createClinicalVariable(study.ontologyTerm)])
+		try {
+			respond wrapObservations(observations, variables)
+		}
+		finally {
+			observations.close()
+		}
+	}
 
-    private ClinicalVariable createClinicalVariable(OntologyTerm term) {
-        clinicalDataResourceService.createClinicalVariable(
-                NORMALIZED_LEAFS_VARIABLE,
-                concept_path: term.fullName)
-    }
+	private ClinicalVariable createClinicalVariable(OntologyTerm term) {
+		clinicalDataResourceService.createClinicalVariable(
+				NORMALIZED_LEAFS_VARIABLE,
+				concept_path: term.fullName)
+	}
 
-    private Study getStudy() { studyLoadingServiceProxy.study }
+	private Study getStudy() { studyLoadingServiceProxy.study }
 
-    private OntologyTerm getConcept() {
-        String conceptId = params.conceptId
-        if (conceptId == null) {
-            // should not happen
-            throw new InvalidArgumentsException('Could not find a concept id')
-        }
+	private OntologyTerm getConcept() {
+		String conceptId = params.conceptId
+		if (conceptId == null) {
+			// should not happen
+			throw new InvalidArgumentsException('Could not find a concept id')
+		}
 
-        use (OntologyTermCategory) {
-            conceptsResourceService.getByKey(
-                    conceptId.keyFromURLPart(study))
-        }
-    }
+		use(OntologyTermCategory) {
+			conceptsResourceService.getByKey conceptId.keyFromURLPart(study)
+		}
+	}
 
-    private Patient getPatient() {
-        Long subjectId = Long.parseLong(params.get('subjectId'))
-        if (!subjectId) {
-            // should not happen
-            throw new InvalidArgumentsException('Could not find a study id')
-        }
+	private Patient getPatient() {
+		Long subjectId = params.long('subjectId')
+		if (!subjectId) {
+			// should not happen
+			throw new InvalidArgumentsException('Could not find a study id')
+		}
 
-        def patient = patientsResourceService.getPatientById(subjectId)
-        if (patient.trial != study.id) {
-            throw new NoSuchResourceException("Subject $subjectId does not " +
-                    "belong to study ${study.id}")
-        }
-        patient
-    }
+		Patient patient = patientsResourceService.getPatientById(subjectId)
+		if (patient.trial != study.id) {
+			throw new NoSuchResourceException(
+					"Subject $subjectId does not belong to study $study.id")
+		}
+		patient
+	}
 
-    private static Iterator<ObservationWrapper> wrapObservations(
-            TabularResult<ClinicalVariable, PatientRow> tabularResult,
-            List<ClinicalVariable> originalVariables) {
-        new TabularResultObservationsIterator(
-                originalRowIterator: tabularResult.getRows(),
-                clinicalVariables: originalVariables,)
-    }
+	private static Iterator<ObservationWrapper> wrapObservations(
+			TabularResult<ClinicalVariable, PatientRow> tabularResult,
+			List<ClinicalVariable> originalVariables) {
+		new TabularResultObservationsIterator(
+				originalRowIterator: tabularResult.getRows(),
+				clinicalVariables: originalVariables,)
+	}
 
-    static class TabularResultObservationsIterator
-            extends AbstractIterator<ObservationWrapper>
-            implements ComponentIndicatingContainer {
+	static class TabularResultObservationsIterator
+			extends AbstractIterator<ObservationWrapper>
+			implements ComponentIndicatingContainer {
 
-        final Class<?> componentType = ObservationWrapper
+		final Class<?> componentType = ObservationWrapper
 
-        Iterator<PatientRow> originalRowIterator
-        List<ClinicalVariable> clinicalVariables
+		Iterator<PatientRow> originalRowIterator
+		List<ClinicalVariable> clinicalVariables
 
-        private PatientRow currentRow
-        private Iterator<ClinicalVariableColumn> clinicalVariableIterator
-        private Iterator<Map.Entry<ClinicalVariableColumn, Object>> complexCellIterator
+		private PatientRow currentRow
+		private Iterator<ClinicalVariableColumn> clinicalVariableIterator
+		private Iterator<Map.Entry<ClinicalVariableColumn, Object>> complexCellIterator
 
-        @Override
-        protected ObservationWrapper computeNext() {
-            if (complexCellIterator) {
-                if (complexCellIterator.hasNext()) {
-                    Map.Entry<ClinicalVariableColumn, Object> entry =
-                            complexCellIterator.next()
+		protected ObservationWrapper computeNext() {
+			if (complexCellIterator) {
+				if (complexCellIterator.hasNext()) {
+					Map.Entry<ClinicalVariableColumn, Object> entry = complexCellIterator.next()
+					return new ObservationWrapper(
+							subject: currentRow.patient,
+							label: entry.key.label,
+							value: entry.value)
+				}
+				else {
+					complexCellIterator = null
+				}
+			}
 
-                    return new ObservationWrapper(
-                            subject: currentRow.patient,
-                            label: entry.key.label,
-                            value: entry.value)
-                } else {
-                    complexCellIterator = null
-                }
-            }
+			if (!clinicalVariableIterator?.hasNext()) {
+				if (!originalRowIterator.hasNext()) {
+					return endOfData()
+				}
 
-            if (!clinicalVariableIterator?.hasNext()) {
-                if (!originalRowIterator.hasNext()) {
-                    return endOfData()
-                }
+				currentRow = originalRowIterator.next()
+				clinicalVariableIterator = clinicalVariables.iterator()
+			}
 
-                currentRow = originalRowIterator.next()
-                clinicalVariableIterator = clinicalVariables.iterator()
-            }
+			def currentVar = clinicalVariableIterator.next()
+			def value = currentRow.getAt(currentVar)
 
-            def currentVar = clinicalVariableIterator.next()
-            def value = currentRow.getAt(currentVar)
+			if (value instanceof Map) {
+				complexCellIterator = value.iterator()
+				computeNext()
+			}
+			else {
+				new ObservationWrapper(
+						subject: currentRow.patient,
+						label: currentVar.label,
+						value: value)
+			}
+		}
+	}
 
-            if (value instanceof Map) {
-                complexCellIterator = value.iterator()
-                computeNext()
-            } else {
-                new ObservationWrapper(
-                        subject: currentRow.patient,
-                        label: currentVar.label,
-                        value: value)
-            }
-        }
-    }
-
-    private static void wrapException(Class<? extends Exception> exceptionType,
-                                      Closure<Void> code) {
-        try {
-            code.call()
-        } catch (Exception e) {
-            if (exceptionType.isAssignableFrom(e.getClass())) {
-                throw new InvalidArgumentsException(e)
-            } else {
-                throw e
-            }
-        }
-    }
+	private static void wrapException(Class<? extends Exception> exceptionType, Closure<Void> code) {
+		try {
+			code()
+		}
+		catch (e) {
+			if (exceptionType.isAssignableFrom(e.getClass())) {
+				throw new InvalidArgumentsException(e)
+			}
+			else {
+				throw e
+			}
+		}
+	}
 }

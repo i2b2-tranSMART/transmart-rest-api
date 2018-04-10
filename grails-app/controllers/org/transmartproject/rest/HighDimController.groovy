@@ -27,8 +27,10 @@
 package org.transmartproject.rest
 
 import grails.rest.Link
+import grails.rest.render.util.AbstractLinkingRenderer
 import org.transmartproject.core.dataquery.assay.Assay
 import org.transmartproject.core.dataquery.highdim.HighDimensionDataTypeResource
+import org.transmartproject.core.ontology.ConceptsResource
 import org.transmartproject.core.ontology.OntologyTerm
 import org.transmartproject.rest.marshallers.ContainerResponseWrapper
 import org.transmartproject.rest.marshallers.HighDimSummary
@@ -40,82 +42,75 @@ import org.transmartproject.rest.ontology.OntologyTermCategory
 
 class HighDimController {
 
-    static responseFormats = ['json', 'hal']
+	static responseFormats = ['json', 'hal']
 
-    def highDimDataService
+	ConceptsResource conceptsResourceService
+	HighDimDataService highDimDataService
+	StudyLoadingService studyLoadingServiceProxy
 
-    def conceptsResourceService
+	def index(String dataType, String conceptId) {
+		if (dataType) {
+			// backwards compatibility
+			// preferred to use /highdim/<data type> for download
+			download dataType
+			return
+		}
 
-    StudyLoadingService studyLoadingServiceProxy
+		OntologyTerm concept = conceptsResourceService.getByKey(getConceptKey(conceptId))
+		String conceptLink = studyLoadingServiceProxy.getOntologyTermUrl(concept)
+		String selfLink = HighDimSummarySerializationHelper.getHighDimIndexUrl(conceptLink)
 
-    def index() {
-        if (params.dataType) {
-            // backwards compatibility
-            // preferred to use /highdim/<data type> for download
-            download params.dataType
-            return
-        }
+		respond wrapList(getHighDimSummaries(concept), selfLink)
+	}
 
-        String conceptKey = getConceptKey(params.conceptId)
-        OntologyTerm concept = conceptsResourceService.getByKey(conceptKey)
-        String conceptLink = studyLoadingServiceProxy.getOntologyTermUrl(concept)
-        String selfLink = HighDimSummarySerializationHelper.getHighDimIndexUrl(conceptLink)
+	def download(String dataType, String assayConstraints, String dataConstraints,
+	             String conceptId, String projection) {
+		assert dataType // ensured by url mapping
+		Map<String, List> assayConstraintsSpec = JsonParametersParser.parseConstraints(assayConstraints)
+		Map<String, List> dataConstraintsSpec = JsonParametersParser.parseConstraints(dataConstraints)
 
-        respond wrapList(getHighDimSummaries(concept), selfLink)
-    }
+		String conceptKey = getConceptKey(conceptId)
+		OutputStream out = new LazyOutputStreamDecorator(
+				outputStreamProducer: { ->
+					response.contentType = 'application/octet-stream'
+					response.outputStream
+				})
 
-    def download(String dataType) {
-        assert dataType != null // ensured by mapping
-        def assayConstraintsSpec = JsonParametersParser.parseConstraints params.assayConstraints
-        def dataConstraintsSpec = JsonParametersParser.parseConstraints params.dataConstraints
+		try {
+			highDimDataService.write conceptKey, dataType, projection, assayConstraintsSpec, dataConstraintsSpec, out
+		}
+		finally {
+			out.close()
+		}
+	}
 
-        String conceptKey = getConceptKey(params.conceptId)
-        OutputStream out = new LazyOutputStreamDecorator(
-                outputStreamProducer: { ->
-                    response.contentType = 'application/octet-stream'
-                    response.outputStream
-                })
+	private String getConceptKey(String concept) {
+		OntologyTermCategory.keyFromURLPart(concept, studyLoadingServiceProxy.study)
+	}
 
-        try {
-            highDimDataService.write(conceptKey, dataType, params.projection,
-                    assayConstraintsSpec, dataConstraintsSpec, out)
-        } finally {
-            out.close()
-        }
-    }
+	private List<HighDimSummary> getHighDimSummaries(OntologyTerm concept) {
+		Map<HighDimensionDataTypeResource, Collection<Assay>> resourceMap =
+				highDimDataService.getAvailableHighDimResources(concept.key)
 
-    private String getConceptKey(String concept) {
-        OntologyTermCategory.keyFromURLPart(concept, studyLoadingServiceProxy.study)
-    }
+		resourceMap.collect { HighDimensionDataTypeResource hdr, Collection<Assay> assays ->
+			new HighDimSummary(
+					conceptWrapper: new OntologyTermWrapper(concept, false),
+					name: hdr.dataTypeName,
+					assayCount: assays.size(),
+					supportedProjections: hdr.supportedProjections,
+					supportedAssayConstraints: hdr.supportedAssayConstraints,
+					supportedDataConstraints: hdr.supportedDataConstraints,
+					// should be the same for all:
+					genomeBuildId: assays.first().platform.genomeReleaseId
+			)
+		}
+	}
 
-    private List getHighDimSummaries(OntologyTerm concept) {
-        Map<HighDimensionDataTypeResource, Collection<Assay>> resourceMap =
-                highDimDataService.getAvailableHighDimResources(concept.key)
-
-        resourceMap.collect {
-            HighDimensionDataTypeResource hdr, Collection<Assay> assays ->
-            new HighDimSummary(
-                    conceptWrapper: new OntologyTermWrapper(concept, false),
-                    name: hdr.dataTypeName,
-                    assayCount: assays.size(),
-                    supportedProjections: hdr.supportedProjections,
-                    supportedAssayConstraints: hdr.supportedAssayConstraints,
-                    supportedDataConstraints: hdr.supportedDataConstraints,
-                    // should be the same for all:
-                    genomeBuildId: assays.first().platform.genomeReleaseId
-            )
-        }
-    }
-
-    private def wrapList(List source, String selfLink) {
-
-        new ContainerResponseWrapper(
-                container: source,
-                componentType: HighDimSummary,
-                links: [
-                        new Link(grails.rest.render.util.AbstractLinkingRenderer.RELATIONSHIP_SELF, selfLink),
-                ]
-        )
-    }
-
+	private ContainerResponseWrapper wrapList(List<HighDimSummary> source, String selfLink) {
+		new ContainerResponseWrapper(
+				container: source,
+				componentType: HighDimSummary,
+				links: [new Link(AbstractLinkingRenderer.RELATIONSHIP_SELF, selfLink)]
+		)
+	}
 }

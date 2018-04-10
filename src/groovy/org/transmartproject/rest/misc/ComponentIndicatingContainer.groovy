@@ -14,5 +14,5 @@ import org.springframework.validation.BeanPropertyBindingResult
  * registry can already figure out the component type.
  */
 interface ComponentIndicatingContainer {
-    Class<?> getComponentType()
+	Class<?> getComponentType()
 }

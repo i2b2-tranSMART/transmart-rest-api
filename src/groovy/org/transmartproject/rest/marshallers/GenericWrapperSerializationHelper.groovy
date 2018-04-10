@@ -10,27 +10,26 @@
 package org.transmartproject.rest.marshallers
 
 import grails.rest.Link
+import groovy.transform.CompileStatic
 
+@CompileStatic
 class GenericWrapperSerializationHelper extends AbstractHalOrJsonSerializationHelper<GenericWrapper> {
 
-    final Class targetType = GenericWrapper
+	final Class targetType = GenericWrapper
 
-    String getCollectionName() {
-        throw new UnsupportedOperationException("No collection name for GenericWrapper")
-    }
+	String getCollectionName() {
+		throw new UnsupportedOperationException('No collection name for GenericWrapper')
+	}
 
-    @Override
-    Collection<Link> getLinks(GenericWrapper bm) {
-        bm.links
-    }
+	Collection<Link> getLinks(GenericWrapper bm) {
+		bm.links
+	}
 
-    @Override
-    Map<String, Object> convertToMap(GenericWrapper bm) {
-        bm.values
-    }
+	Map<String, Object> convertToMap(GenericWrapper bm) {
+		bm.values
+	}
 
-    @Override
-    Set<String> getEmbeddedEntities(GenericWrapper bm) {
-        bm.embeddedEntities
-    }
+	Set<String> getEmbeddedEntities(GenericWrapper bm) {
+		bm.embeddedEntities
+	}
 }
