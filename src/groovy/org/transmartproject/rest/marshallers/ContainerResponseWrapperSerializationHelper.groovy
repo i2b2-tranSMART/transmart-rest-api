@@ -42,7 +42,7 @@ class ContainerResponseWrapperSerializationHelper extends AbstractHalOrJsonSeria
 
 	HalOrJsonSerializationHelper findComponentTypeHelper(Class targetComponentType) {
 		// TODO cache this
-		ctx.getBeansOfType(HalOrJsonSerializationHelper).values().find {
+		ctx.getBeansOfType(HalOrJsonSerializationHelper).values().find { HalOrJsonSerializationHelper it ->
 			it.targetType == targetComponentType
 		}
 	}
@@ -52,13 +52,13 @@ class ContainerResponseWrapperSerializationHelper extends AbstractHalOrJsonSeria
 	}
 
 	Map<String, Object> convertToMap(ContainerResponseWrapper object) {
-		object.containers.collectEntries {
+		object.containers.collectEntries { ContainerResponseWrapper.entry it ->
 			[getKeyForObjectType(it), it.container]
 		}
 	}
 
 	Set<String> getEmbeddedEntities(ContainerResponseWrapper object) {
-		object.containers.collect { getKeyForObjectType(it) } as Set
+		object.containers.collect {  ContainerResponseWrapper.entry it -> getKeyForObjectType(it) } as Set
 	}
 
 	private String getKeyForObjectType(ContainerResponseWrapper.entry container) {

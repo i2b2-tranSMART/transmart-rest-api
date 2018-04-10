@@ -43,7 +43,8 @@ class ContainerResponseWrapper {
 		String key = args.key
 		links = (args.links ?: []) as List<Link>
 
-		containers = ((args.containers ?: []) as List<entry>) + [new entry(key, componentType, container)]
+		containers = ((args.containers ?: []) as List<entry>)
+		containers << new entry(key, componentType, container)
 	}
 
 	static ContainerResponseWrapper asMap(Map<String, List> args, List<Link> links) {

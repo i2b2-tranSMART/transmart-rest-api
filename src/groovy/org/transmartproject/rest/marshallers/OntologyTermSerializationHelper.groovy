@@ -108,7 +108,7 @@ class OntologyTermSerializationHelper extends AbstractHalOrJsonSerializationHelp
 		List<OntologyTermTag> tags = map[term]
 
 		if (tags) {
-			result.metadata = tags.collectEntries { [(it.name): it.description] }
+			result.metadata = tags.collectEntries { OntologyTermTag it -> [(it.name): it.description] }
 		}
 
 		result

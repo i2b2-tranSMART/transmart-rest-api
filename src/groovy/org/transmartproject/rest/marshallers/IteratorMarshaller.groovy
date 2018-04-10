@@ -21,7 +21,7 @@ class IteratorMarshaller implements ObjectMarshaller<JSON> {
 	}
 
 	void marshalObject(object, JSON converter) throws ConverterException {
-		JSONWriter writer = converter.writer
+		JSONWriter writer = (JSONWriter) converter.writer
 		writer.array()
 		((Iterator) object).each {
 			converter.convertAnother it

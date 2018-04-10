@@ -32,7 +32,7 @@ class MarshallerSupport {
 
 	static Map<String, Object> getPropertySubsetForSuperType(o, Class superType, Set<String> excludes = []) {
 		if (!superType.isAssignableFrom(o.getClass())) {
-			throw new IllegalArgumentException("Object '$o' is not of type " + superType)
+			throw new IllegalArgumentException('Object "' + o + '" is not of type ' + superType)
 		}
 
 		superType.metaClass.properties.findAll { MetaProperty it ->
