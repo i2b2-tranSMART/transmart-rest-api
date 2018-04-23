@@ -76,7 +76,7 @@ class JsonMatcher extends DiagnosingMatcher<JSONObject> {
             //finding an element in some JSONArray
             int idx = arrayPath.indexOf(']')
             String part = arrayPath.substring(0, idx + 1)
-            int position = part.substring(1, idx) as Integer
+            int position = part.substring(1, idx) as int
 
             String remainderArrayPath = (arrayPath == part) ? null : arrayPath.substring(part.length())
 

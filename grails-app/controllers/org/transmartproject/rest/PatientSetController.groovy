@@ -22,7 +22,7 @@ class PatientSetController {
 
 	@Autowired private QueriesResource queriesResource
 	@Autowired QueryDefinitionXmlConverter queryDefinitionXmlConverter
-	@Autowired CurrentUser currentUser
+	CurrentUser currentUser
 
 	/**
 	 * Not yet supported in core-api.

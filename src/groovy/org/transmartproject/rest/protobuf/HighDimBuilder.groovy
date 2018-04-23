@@ -213,7 +213,7 @@ class HighDimBuilder {
                 TimepointName: col.timepoint?.label,
                 TissueTypeName: col.tissueType?.label,
         ]
-        
+
         optionalValues.each { field, value ->
             if(value != null) {
                 // Java reflection because of CompileStatic. The conversion to Object[] is not necessary,
@@ -224,11 +224,11 @@ class HighDimBuilder {
         builder.build()
     }
 
-    private static String safeString(Object obj) {
+    private static String safeString(obj) {
         obj == null ? '' : obj.toString()
     }
 
-    private static Double safeDouble(Object obj) {
+    private static Double safeDouble(obj) {
         obj == null ? Double.NaN : obj as Double
     }
 }

@@ -245,7 +245,7 @@ class NavigationLinksMatcher extends DiagnosingMatcher<JSONObject> {
             LinkMatcher.hasLink("$baseUrl/$it", it)
         }
 
-        def cm = childrenMatchers.isEmpty() ? null : containsInAnyOrder(childrenMatchers.collect { it })
+        def cm = !childrenMatchers ? null : containsInAnyOrder(childrenMatchers.collect { it })
 
         new NavigationLinksMatcher(selfLinkMatcher: slm, parentLinkMatcher: plm, childrenMatcher: cm)
     }
@@ -377,7 +377,7 @@ class MetadataTagsMatcher extends DiagnosingMatcher<JSONObject> {
         JSONObject obj = item
         def hasMetadata = obj.has('metadata')
 
-        if (expectedTags.isEmpty()) {
+        if (!expectedTags) {
             if (hasMetadata) {
                 mismatchDescription.appendText(" was not expecting any metadata tags, but got them")
                 return false

@@ -102,12 +102,11 @@ class HalOrJsonRenderer<T> extends AbstractIncludeExcludeRenderer<T> implements 
 	}
 
 	private String getContentType(String name) {
-		if (name.indexOf(';') > -1 &&
-				CHARSET_IN_CONTENT_TYPE_REGEXP.matcher(name).find()) {
+		if (name.contains(';') && CHARSET_IN_CONTENT_TYPE_REGEXP.matcher(name).find()) {
 			name
 		}
 		else {
-			name = ';charset=' + encoding
+			name + ';charset=' + encoding
 		}
 	}
 
